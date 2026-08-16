@@ -1,0 +1,23 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "model": "{env:OPENCODE_MODEL}",
+  "default_agent": "experiment",
+  "share": "disabled",
+  "autoupdate": false,
+  "formatter": false,
+  "lsp": false,
+  "plugin": ["file:///opt/harness/tool-bridge.ts"],
+  "agent": {
+    "experiment": {
+      "description": "Frozen primary agent for experiment runs.",
+      "mode": "primary",
+      "model": "{env:OPENCODE_MODEL}",
+      "permission": {
+        "*": "deny",
+        "read": "allow",
+        "edit": "allow",
+        "bash": "allow"
+      }
+    }
+  }
+}
