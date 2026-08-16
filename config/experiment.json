@@ -1,0 +1,162 @@
+{
+  "$schema": "../schemas/experiment-config.schema.json",
+  "schemaVersion": 1,
+  "status": "draft",
+  "deadline": "2026-08-30",
+  "model": {
+    "provider": "openrouter",
+    "id": "openrouter/deepseek/deepseek-v4-flash-0731",
+    "settings": "provider-defaults"
+  },
+  "agent": {
+    "name": "opencode",
+    "version": "1.18.18",
+    "allowedCapabilities": ["read", "edit", "bash"]
+  },
+  "frozenInputs": {
+    "designRevision": "TODO_GIT_COMMIT",
+    "evaluatorRevision": "TODO_GIT_COMMIT",
+    "resultSchemaRevision": "TODO_GIT_COMMIT",
+    "environmentImages": {
+      "coordinator": "TODO_PIN_DIGEST",
+      "toolDirect": "TODO_PIN_DIGEST",
+      "toolCodegen": "TODO_PIN_DIGEST",
+      "evaluator": "TODO_PIN_DIGEST"
+    },
+    "scheduleManifest": "config/schedule.json",
+    "fixtures": {
+      "base1": "TODO_GIT_COMMIT",
+      "base2Direct": "TODO_GIT_COMMIT",
+      "base2Codegen": "TODO_GIT_COMMIT"
+    },
+    "treatments": {
+      "direct": "TODO_GIT_COMMIT",
+      "codegen": "TODO_GIT_COMMIT"
+    },
+    "tasks": {
+      "part1": "TODO_CONTENT_SHA256",
+      "nullablePatchFull": "TODO_CONTENT_SHA256",
+      "optimisticLockingFull": "TODO_CONTENT_SHA256",
+      "cursorPaginationFull": "TODO_CONTENT_SHA256",
+      "nullablePatchPropagationTask": "TODO_CONTENT_SHA256",
+      "optimisticLockingPropagationTask": "TODO_CONTENT_SHA256",
+      "cursorPaginationPropagationTask": "TODO_CONTENT_SHA256",
+      "nullablePatchFormalPatch": "TODO_CONTENT_SHA256",
+      "optimisticLockingFormalPatch": "TODO_CONTENT_SHA256",
+      "cursorPaginationFormalPatch": "TODO_CONTENT_SHA256"
+    }
+  },
+  "execution": {
+    "timeoutSeconds": 2700,
+    "maxConcurrency": 2,
+    "networkPolicy": "model-provider-only",
+    "networkPolicyEnforcementStatus": "unvalidated",
+    "humanAssistance": false,
+    "hiddenFeedbackRounds": 0,
+    "schedule": "blocked-randomized",
+    "scheduleSeed": "TODO_FREEZE_BEFORE_MEASURED_RUNS"
+  },
+  "repetitionsPerCell": 5,
+  "pilotRepetitionsPerCell": 1,
+  "reviewRunIndexes": [2, 4],
+  "cells": [
+    {
+      "id": "greenfield-direct",
+      "stage": "greenfield",
+      "task": "baseline-service",
+      "mode": "greenfield",
+      "treatment": "direct"
+    },
+    {
+      "id": "greenfield-codegen",
+      "stage": "greenfield",
+      "task": "baseline-service",
+      "mode": "greenfield",
+      "treatment": "codegen"
+    },
+    {
+      "id": "nullable-patch-full-direct",
+      "stage": "existing-service",
+      "task": "nullable-patch",
+      "mode": "full-workflow",
+      "treatment": "direct"
+    },
+    {
+      "id": "nullable-patch-full-codegen",
+      "stage": "existing-service",
+      "task": "nullable-patch",
+      "mode": "full-workflow",
+      "treatment": "codegen"
+    },
+    {
+      "id": "nullable-patch-propagation-direct",
+      "stage": "existing-service",
+      "task": "nullable-patch",
+      "mode": "propagation-only",
+      "treatment": "direct"
+    },
+    {
+      "id": "nullable-patch-propagation-codegen",
+      "stage": "existing-service",
+      "task": "nullable-patch",
+      "mode": "propagation-only",
+      "treatment": "codegen"
+    },
+    {
+      "id": "optimistic-locking-full-direct",
+      "stage": "existing-service",
+      "task": "optimistic-locking",
+      "mode": "full-workflow",
+      "treatment": "direct"
+    },
+    {
+      "id": "optimistic-locking-full-codegen",
+      "stage": "existing-service",
+      "task": "optimistic-locking",
+      "mode": "full-workflow",
+      "treatment": "codegen"
+    },
+    {
+      "id": "optimistic-locking-propagation-direct",
+      "stage": "existing-service",
+      "task": "optimistic-locking",
+      "mode": "propagation-only",
+      "treatment": "direct"
+    },
+    {
+      "id": "optimistic-locking-propagation-codegen",
+      "stage": "existing-service",
+      "task": "optimistic-locking",
+      "mode": "propagation-only",
+      "treatment": "codegen"
+    },
+    {
+      "id": "cursor-pagination-full-direct",
+      "stage": "existing-service",
+      "task": "cursor-pagination",
+      "mode": "full-workflow",
+      "treatment": "direct"
+    },
+    {
+      "id": "cursor-pagination-full-codegen",
+      "stage": "existing-service",
+      "task": "cursor-pagination",
+      "mode": "full-workflow",
+      "treatment": "codegen"
+    },
+    {
+      "id": "cursor-pagination-propagation-direct",
+      "stage": "existing-service",
+      "task": "cursor-pagination",
+      "mode": "propagation-only",
+      "treatment": "direct"
+    },
+    {
+      "id": "cursor-pagination-propagation-codegen",
+      "stage": "existing-service",
+      "task": "cursor-pagination",
+      "mode": "propagation-only",
+      "treatment": "codegen"
+    }
+  ]
+}

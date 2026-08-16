@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/specs-dont-hallucinate/schedule.schema.json",
+  "title": "Frozen run schedule",
+  "type": "object",
+  "required": ["$schema", "schemaVersion", "status", "strategy", "seed", "generatedAt", "configRevision", "runs"],
+  "additionalProperties": false,
+  "properties": {
+    "$schema": {"type": "string", "minLength": 1},
+    "schemaVersion": {"const": 1},
+    "status": {"enum": ["draft", "frozen"]},
+    "strategy": {"const": "blocked-randomized"},
+    "seed": {"type": "string", "minLength": 1},
+    "generatedAt": {"type": ["string", "null"], "format": "date-time"},
+    "configRevision": {"type": "string", "minLength": 1},
+    "runs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["ordinal", "runId", "cellId", "repeatIndex"],
+        "additionalProperties": false,
+        "properties": {
+          "ordinal": {"type": "integer", "minimum": 1},
+          "runId": {"type": "string", "minLength": 1},
+          "cellId": {"type": "string", "minLength": 1},
+          "repeatIndex": {"type": "integer", "minimum": 1, "maximum": 5}
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"status": {"const": "frozen"}}, "required": ["status"]},
+      "then": {
+        "properties": {
+          "seed": {"not": {"pattern": "^TODO"}},
+          "generatedAt": {"type": "string", "format": "date-time"},
+          "configRevision": {"not": {"pattern": "^TODO"}},
+          "runs": {"minItems": 70, "maxItems": 70}
+        }
+      }
+    }
+  ]
+}

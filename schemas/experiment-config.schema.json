@@ -1,0 +1,209 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/specs-dont-hallucinate/experiment-config.schema.json",
+  "title": "Experiment configuration",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "status",
+    "deadline",
+    "model",
+    "agent",
+    "frozenInputs",
+    "execution",
+    "repetitionsPerCell",
+    "pilotRepetitionsPerCell",
+    "cells"
+  ],
+  "properties": {
+    "schemaVersion": {"const": 1},
+    "status": {"enum": ["draft", "frozen"]},
+    "deadline": {"type": "string", "format": "date"},
+    "model": {
+      "type": "object",
+      "required": ["provider", "id", "settings"],
+      "additionalProperties": false,
+      "properties": {
+        "provider": {"type": "string", "minLength": 1},
+        "id": {"type": "string", "minLength": 1},
+        "settings": {"type": "string", "minLength": 1}
+      }
+    },
+    "agent": {
+      "type": "object",
+      "required": ["name", "version", "allowedCapabilities"],
+      "additionalProperties": false,
+      "properties": {
+        "name": {"type": "string", "minLength": 1},
+        "version": {"type": "string", "minLength": 1},
+        "allowedCapabilities": {
+          "type": "array",
+          "items": {"enum": ["read", "edit", "bash"]},
+          "uniqueItems": true
+        }
+      }
+    },
+    "frozenInputs": {
+      "type": "object",
+      "required": [
+        "designRevision",
+        "evaluatorRevision",
+        "resultSchemaRevision",
+        "environmentImages",
+        "scheduleManifest",
+        "fixtures",
+        "treatments",
+        "tasks"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "designRevision": {"type": "string", "minLength": 1},
+        "evaluatorRevision": {"type": "string", "minLength": 1},
+        "resultSchemaRevision": {"type": "string", "minLength": 1},
+        "environmentImages": {
+          "type": "object",
+          "required": ["coordinator", "toolDirect", "toolCodegen", "evaluator"],
+          "additionalProperties": false,
+          "properties": {
+            "coordinator": {"type": "string", "minLength": 1},
+            "toolDirect": {"type": "string", "minLength": 1},
+            "toolCodegen": {"type": "string", "minLength": 1},
+            "evaluator": {"type": "string", "minLength": 1}
+          }
+        },
+        "scheduleManifest": {"type": "string", "minLength": 1},
+        "fixtures": {
+          "type": "object",
+          "required": ["base1", "base2Direct", "base2Codegen"],
+          "additionalProperties": false,
+          "properties": {
+            "base1": {"type": "string", "minLength": 1},
+            "base2Direct": {"type": "string", "minLength": 1},
+            "base2Codegen": {"type": "string", "minLength": 1}
+          }
+        },
+        "treatments": {
+          "type": "object",
+          "required": ["direct", "codegen"],
+          "additionalProperties": false,
+          "properties": {
+            "direct": {"type": "string", "minLength": 1},
+            "codegen": {"type": "string", "minLength": 1}
+          }
+        },
+        "tasks": {
+          "type": "object",
+          "required": [
+            "part1",
+            "nullablePatchFull",
+            "optimisticLockingFull",
+            "cursorPaginationFull",
+            "nullablePatchPropagationTask",
+            "optimisticLockingPropagationTask",
+            "cursorPaginationPropagationTask",
+            "nullablePatchFormalPatch",
+            "optimisticLockingFormalPatch",
+            "cursorPaginationFormalPatch"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "part1": {"type": "string", "minLength": 1},
+            "nullablePatchFull": {"type": "string", "minLength": 1},
+            "optimisticLockingFull": {"type": "string", "minLength": 1},
+            "cursorPaginationFull": {"type": "string", "minLength": 1},
+            "nullablePatchPropagationTask": {"type": "string", "minLength": 1},
+            "optimisticLockingPropagationTask": {"type": "string", "minLength": 1},
+            "cursorPaginationPropagationTask": {"type": "string", "minLength": 1},
+            "nullablePatchFormalPatch": {"type": "string", "minLength": 1},
+            "optimisticLockingFormalPatch": {"type": "string", "minLength": 1},
+            "cursorPaginationFormalPatch": {"type": "string", "minLength": 1}
+          }
+        }
+      }
+    },
+    "execution": {
+      "type": "object",
+      "required": [
+        "timeoutSeconds",
+        "maxConcurrency",
+        "networkPolicy",
+        "networkPolicyEnforcementStatus",
+        "humanAssistance",
+        "hiddenFeedbackRounds",
+        "schedule",
+        "scheduleSeed"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "timeoutSeconds": {"type": "integer", "minimum": 1},
+        "maxConcurrency": {"type": "integer", "minimum": 1},
+        "networkPolicy": {"const": "model-provider-only"},
+        "networkPolicyEnforcementStatus": {"enum": ["unvalidated", "validated"]},
+        "humanAssistance": {"const": false},
+        "hiddenFeedbackRounds": {"const": 0},
+        "schedule": {"const": "blocked-randomized"},
+        "scheduleSeed": {"type": "string", "minLength": 1}
+      }
+    },
+    "repetitionsPerCell": {"const": 5},
+    "pilotRepetitionsPerCell": {"const": 1},
+    "reviewRunIndexes": {
+      "type": "array",
+      "prefixItems": [{"const": 2}, {"const": 4}],
+      "items": false
+    },
+    "cells": {
+      "type": "array",
+      "prefixItems": [
+        {"const": {"id": "greenfield-direct", "stage": "greenfield", "task": "baseline-service", "mode": "greenfield", "treatment": "direct"}},
+        {"const": {"id": "greenfield-codegen", "stage": "greenfield", "task": "baseline-service", "mode": "greenfield", "treatment": "codegen"}},
+        {"const": {"id": "nullable-patch-full-direct", "stage": "existing-service", "task": "nullable-patch", "mode": "full-workflow", "treatment": "direct"}},
+        {"const": {"id": "nullable-patch-full-codegen", "stage": "existing-service", "task": "nullable-patch", "mode": "full-workflow", "treatment": "codegen"}},
+        {"const": {"id": "nullable-patch-propagation-direct", "stage": "existing-service", "task": "nullable-patch", "mode": "propagation-only", "treatment": "direct"}},
+        {"const": {"id": "nullable-patch-propagation-codegen", "stage": "existing-service", "task": "nullable-patch", "mode": "propagation-only", "treatment": "codegen"}},
+        {"const": {"id": "optimistic-locking-full-direct", "stage": "existing-service", "task": "optimistic-locking", "mode": "full-workflow", "treatment": "direct"}},
+        {"const": {"id": "optimistic-locking-full-codegen", "stage": "existing-service", "task": "optimistic-locking", "mode": "full-workflow", "treatment": "codegen"}},
+        {"const": {"id": "optimistic-locking-propagation-direct", "stage": "existing-service", "task": "optimistic-locking", "mode": "propagation-only", "treatment": "direct"}},
+        {"const": {"id": "optimistic-locking-propagation-codegen", "stage": "existing-service", "task": "optimistic-locking", "mode": "propagation-only", "treatment": "codegen"}},
+        {"const": {"id": "cursor-pagination-full-direct", "stage": "existing-service", "task": "cursor-pagination", "mode": "full-workflow", "treatment": "direct"}},
+        {"const": {"id": "cursor-pagination-full-codegen", "stage": "existing-service", "task": "cursor-pagination", "mode": "full-workflow", "treatment": "codegen"}},
+        {"const": {"id": "cursor-pagination-propagation-direct", "stage": "existing-service", "task": "cursor-pagination", "mode": "propagation-only", "treatment": "direct"}},
+        {"const": {"id": "cursor-pagination-propagation-codegen", "stage": "existing-service", "task": "cursor-pagination", "mode": "propagation-only", "treatment": "codegen"}}
+      ],
+      "items": false
+    }
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"status": {"const": "frozen"}}, "required": ["status"]},
+      "then": {
+        "properties": {
+          "agent": {
+            "properties": {
+              "version": {"not": {"pattern": "^TODO"}}
+            }
+          },
+          "frozenInputs": {
+            "properties": {
+              "environmentImages": {
+                "properties": {
+                  "coordinator": {"not": {"pattern": "^TODO"}},
+                  "toolDirect": {"not": {"pattern": "^TODO"}},
+                  "toolCodegen": {"not": {"pattern": "^TODO"}},
+                  "evaluator": {"not": {"pattern": "^TODO"}}
+                }
+              }
+            }
+          },
+          "execution": {
+            "properties": {
+              "networkPolicyEnforcementStatus": {"const": "validated"},
+              "scheduleSeed": {"not": {"pattern": "^TODO"}}
+            }
+          }
+        }
+      }
+    }
+  ],
+  "additionalProperties": false
+}

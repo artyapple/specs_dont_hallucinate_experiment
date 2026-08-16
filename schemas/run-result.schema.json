@@ -1,0 +1,431 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/specs-dont-hallucinate/run-result.schema.json",
+  "title": "Complete experiment run result",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "runId",
+    "cellId",
+    "repeatIndex",
+    "phase",
+    "stage",
+    "task",
+    "mode",
+    "treatment",
+    "status",
+    "protocolViolations",
+    "infrastructure",
+    "timing",
+    "usage",
+    "process",
+    "artifacts",
+    "evaluation"
+  ],
+  "properties": {
+    "schemaVersion": {"const": 1},
+    "runId": {"type": "string", "minLength": 1},
+    "cellId": {"type": "string", "minLength": 1},
+    "repeatIndex": {"type": "integer", "minimum": 1, "maximum": 5},
+    "phase": {"enum": ["pilot", "measured"]},
+    "stage": {"enum": ["greenfield", "existing-service"]},
+    "task": {"enum": ["baseline-service", "nullable-patch", "optimistic-locking", "cursor-pagination"]},
+    "mode": {"enum": ["greenfield", "full-workflow", "propagation-only"]},
+    "treatment": {"enum": ["direct", "codegen"]},
+    "status": {"enum": ["submitted", "timed-out", "infrastructure-failure", "harness-failure"]},
+    "protocolViolations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["category", "timestamp", "evidence", "isolationForcedTermination"],
+        "additionalProperties": false,
+        "properties": {
+          "category": {"type": "string", "minLength": 1},
+          "timestamp": {"type": "string", "format": "date-time"},
+          "evidence": {"type": "string", "minLength": 1},
+          "isolationForcedTermination": {"type": "boolean"}
+        }
+      }
+    },
+    "infrastructure": {
+      "type": "object",
+      "required": [
+        "isFailure",
+        "category",
+        "evidence",
+        "exclusionEligible",
+        "excluded",
+        "replacementRunId",
+        "replacesRunId"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "isFailure": {"type": "boolean"},
+        "category": {"type": ["string", "null"]},
+        "evidence": {"type": ["string", "null"]},
+        "exclusionEligible": {"type": "boolean"},
+        "excluded": {"type": "boolean"},
+        "replacementRunId": {"type": ["string", "null"]},
+        "replacesRunId": {"type": ["string", "null"]}
+      }
+    },
+    "timing": {
+      "type": "object",
+      "required": ["startedAt", "finishedAt", "wallClockMilliseconds"],
+      "additionalProperties": false,
+      "properties": {
+        "startedAt": {"type": "string", "format": "date-time"},
+        "finishedAt": {"type": "string", "format": "date-time"},
+        "wallClockMilliseconds": {"type": "integer", "minimum": 0, "maximum": 2700000},
+        "firstSuccessfulBuildMilliseconds": {"type": ["integer", "null"], "minimum": 0},
+        "firstVisibleBehaviorSuccessMilliseconds": {"type": ["integer", "null"], "minimum": 0}
+      }
+    },
+    "usage": {
+      "type": "object",
+      "required": ["inputTokens", "outputTokens", "turns", "toolCalls"],
+      "additionalProperties": false,
+      "properties": {
+        "inputTokens": {"type": ["integer", "null"], "minimum": 0},
+        "outputTokens": {"type": ["integer", "null"], "minimum": 0},
+        "turns": {"type": "integer", "minimum": 0},
+        "toolCalls": {"type": "integer", "minimum": 0}
+      }
+    },
+    "process": {
+      "type": "object",
+      "required": ["repairIterations", "filesTouched", "diff", "compilerEvents"],
+      "additionalProperties": false,
+      "properties": {
+        "repairIterations": {"type": "integer", "minimum": 0},
+        "filesTouched": {"type": "integer", "minimum": 0},
+        "diff": {
+          "type": "object",
+          "required": ["contractLines", "handwrittenLines", "generatedLines"],
+          "additionalProperties": false,
+          "properties": {
+            "contractLines": {"type": "integer", "minimum": 0},
+            "handwrittenLines": {"type": "integer", "minimum": 0},
+            "generatedLines": {"type": "integer", "minimum": 0}
+          }
+        },
+        "compilerEvents": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "commandIndex",
+              "category",
+              "files",
+              "locations",
+              "pointsToHandwrittenAdaptation",
+              "followedByRelevantRepair"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "commandIndex": {"type": "integer", "minimum": 0},
+              "category": {
+                "enum": [
+                  "generated-interface",
+                  "generated-type",
+                  "handwritten",
+                  "tooling",
+                  "unclassified"
+                ]
+              },
+              "files": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+              "locations": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+              "pointsToHandwrittenAdaptation": {"type": ["boolean", "null"]},
+              "followedByRelevantRepair": {"type": ["boolean", "null"]}
+            }
+          }
+        }
+      }
+    },
+    "artifacts": {
+      "type": "object",
+      "required": ["metadata", "transcript", "finalPatch", "commands", "evaluation", "workspaceManifest"],
+      "additionalProperties": false,
+      "properties": {
+        "metadata": {"type": "string", "minLength": 1},
+        "transcript": {"type": "string", "minLength": 1},
+        "finalPatch": {"type": "string", "minLength": 1},
+        "commands": {"type": "string", "minLength": 1},
+        "evaluation": {"type": "string", "minLength": 1},
+        "workspaceManifest": {"type": "string", "minLength": 1}
+      }
+    },
+    "evaluation": {
+      "type": ["object", "null"],
+      "required": ["completeSuccess", "commonGates", "behaviorCases", "codegenHealth", "candidateTests", "residualFailures"],
+      "additionalProperties": false,
+      "properties": {
+        "completeSuccess": {"type": "boolean"},
+        "commonGates": {
+          "type": "object",
+          "required": [
+            "formal-inputs",
+            "build",
+            "migrations",
+            "service-start",
+            "baseline-behavior",
+            "task-behavior",
+            "regressions",
+            "api-conformance",
+            "database-consistency"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "formal-inputs": {"type": "boolean"},
+            "build": {"type": "boolean"},
+            "migrations": {"type": "boolean"},
+            "service-start": {"type": "boolean"},
+            "baseline-behavior": {"type": "boolean"},
+            "task-behavior": {"type": "boolean"},
+            "regressions": {"type": "boolean"},
+            "api-conformance": {"type": "boolean"},
+            "database-consistency": {"type": "boolean"}
+          }
+        },
+        "behaviorCases": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["id", "applicable", "passed", "evidence"],
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "enum": [
+                  "baseline.create-valid",
+                  "baseline.create-invalid-title",
+                  "baseline.get-existing",
+                  "baseline.get-not-found",
+                  "baseline.list-ordered",
+                  "baseline.delete-existing",
+                  "baseline.delete-again-not-found",
+                  "nullable.initial-null",
+                  "nullable.post-rejects-due-at",
+                  "nullable.omitted-preserves",
+                  "nullable.null-clears",
+                  "nullable.value-sets",
+                  "nullable.title-only",
+                  "nullable.both-fields",
+                  "nullable.empty-rejected",
+                  "nullable.unknown-field-rejected",
+                  "nullable.title-null-rejected",
+                  "nullable.invalid-title",
+                  "nullable.invalid-timestamp",
+                  "nullable.get-consistent",
+                  "locking.initial-version",
+                  "locking.get-etag",
+                  "locking.put-success",
+                  "locking.missing-if-match",
+                  "locking.malformed-if-match",
+                  "locking.stale-if-match",
+                  "locking.unknown-task",
+                  "locking.unknown-field",
+                  "locking.invalid-title",
+                  "locking.concurrent-single-winner",
+                  "pagination.default-limit",
+                  "pagination.limit-bounds",
+                  "pagination.invalid-limit",
+                  "pagination.malformed-cursor",
+                  "pagination.empty",
+                  "pagination.single-page",
+                  "pagination.multiple-pages",
+                  "pagination.timestamp-tie",
+                  "pagination.final-page",
+                  "pagination.cursor-after-delete",
+                  "contract.openapi-conformance",
+                  "contract.problem-details",
+                  "contract.database-consistency"
+                ]
+              },
+              "applicable": {"type": "boolean"},
+              "passed": {"type": ["boolean", "null"]},
+              "evidence": {"type": ["string", "null"]}
+            },
+            "allOf": [
+              {
+                "if": {"properties": {"applicable": {"const": false}}, "required": ["applicable"]},
+                "then": {"properties": {"passed": {"const": null}}}
+              },
+              {
+                "if": {"properties": {"applicable": {"const": true}}, "required": ["applicable"]},
+                "then": {"properties": {"passed": {"type": "boolean"}}}
+              }
+            ]
+          }
+        },
+        "codegenHealth": {
+          "type": ["object", "null"]
+        },
+        "candidateTests": {
+          "type": "object",
+          "required": ["present", "testFiles"],
+          "additionalProperties": false,
+          "properties": {
+            "present": {"type": "boolean"},
+            "testFiles": {"type": "integer", "minimum": 0}
+          }
+        },
+        "residualFailures": {
+          "type": "array",
+          "items": {"type": "string", "minLength": 1}
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"treatment": {"const": "direct"}}, "required": ["treatment"]},
+      "then": {"properties": {"evaluation": {"properties": {"codegenHealth": {"const": null}}}}}
+    },
+    {
+      "if": {"properties": {"treatment": {"const": "codegen"}}, "required": ["treatment"]},
+      "then": {
+        "properties": {
+          "evaluation": {
+            "properties": {
+              "codegenHealth": {
+                "type": "object",
+                "required": ["generationSucceeded", "canonical", "idempotent", "manualEditDetected"],
+                "additionalProperties": false,
+                "properties": {
+                  "generationSucceeded": {"type": "boolean"},
+                  "canonical": {"type": "boolean"},
+                  "idempotent": {"type": "boolean"},
+                  "manualEditDetected": {"type": "boolean"}
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {"enum": ["infrastructure-failure", "harness-failure"]}
+        },
+        "required": ["status"]
+      },
+      "then": {
+        "properties": {
+          "evaluation": {"const": null},
+          "infrastructure": {
+            "properties": {
+              "isFailure": {"const": true}
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {"enum": ["submitted", "timed-out"]}
+        },
+        "required": ["status"]
+      },
+      "then": {
+        "properties": {
+          "evaluation": {"type": "object"}
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "infrastructure": {
+            "properties": {"isFailure": {"const": false}},
+            "required": ["isFailure"]
+          }
+        },
+        "required": ["infrastructure"]
+      },
+      "then": {
+        "properties": {
+          "infrastructure": {
+            "properties": {
+              "category": {"const": null},
+              "evidence": {"const": null},
+              "exclusionEligible": {"const": false},
+              "excluded": {"const": false},
+              "replacementRunId": {"const": null}
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "infrastructure": {
+            "properties": {"excluded": {"const": true}},
+            "required": ["excluded"]
+          }
+        },
+        "required": ["infrastructure"]
+      },
+      "then": {
+        "properties": {
+          "infrastructure": {
+            "properties": {
+              "isFailure": {"const": true},
+              "exclusionEligible": {"const": true},
+              "replacementRunId": {"type": "string", "minLength": 1}
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "evaluation": {
+            "type": "object",
+            "properties": {"completeSuccess": {"const": true}},
+            "required": ["completeSuccess"]
+          }
+        },
+        "required": ["evaluation"]
+      },
+      "then": {
+        "properties": {
+          "evaluation": {
+            "properties": {
+              "commonGates": {
+                "properties": {
+                  "formal-inputs": {"const": true},
+                  "build": {"const": true},
+                  "migrations": {"const": true},
+                  "service-start": {"const": true},
+                  "baseline-behavior": {"const": true},
+                  "task-behavior": {"const": true},
+                  "regressions": {"const": true},
+                  "api-conformance": {"const": true},
+                  "database-consistency": {"const": true}
+                }
+              },
+              "behaviorCases": {
+                "not": {
+                  "contains": {
+                    "type": "object",
+                    "properties": {
+                      "applicable": {"const": true},
+                      "passed": {"const": false}
+                    },
+                    "required": ["applicable", "passed"]
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  ],
+  "additionalProperties": false
+}

@@ -1,0 +1,10 @@
+{
+  "$schema": "../schemas/schedule.schema.json",
+  "schemaVersion": 1,
+  "status": "draft",
+  "strategy": "blocked-randomized",
+  "seed": "TODO_FREEZE_BEFORE_MEASURED_RUNS",
+  "generatedAt": null,
+  "configRevision": "TODO_GIT_COMMIT",
+  "runs": []
+}

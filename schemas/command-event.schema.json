@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/specs-dont-hallucinate/command-event.schema.json",
+  "title": "Agent command event",
+  "type": "object",
+  "required": ["index", "startedAt", "finishedAt", "command", "exitCode", "category", "stdoutPath", "stderrPath"],
+  "additionalProperties": false,
+  "properties": {
+    "index": {"type": "integer", "minimum": 0},
+    "startedAt": {"type": "string", "format": "date-time"},
+    "finishedAt": {"type": "string", "format": "date-time"},
+    "command": {"type": "string", "minLength": 1},
+    "workingDirectory": {"type": "string"},
+    "exitCode": {"type": ["integer", "null"]},
+    "timedOut": {"type": "boolean"},
+    "category": {
+      "enum": ["read", "edit", "build", "test", "generate", "migration", "service", "network-attempt", "other"]
+    },
+    "stdoutPath": {"type": "string", "minLength": 1},
+    "stderrPath": {"type": "string", "minLength": 1}
+  }
+}

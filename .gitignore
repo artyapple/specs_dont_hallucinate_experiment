@@ -1,0 +1,17 @@
+# Run artifacts may contain large files or sensitive transcripts.
+/pilots/*/
+/results/*/
+
+# Local caches and credentials must never be committed.
+/.cache/
+/.env
+*.local
+
+# Build outputs.
+/bin/
+/dist/
+coverage.out
+
+!.gitkeep
+!pilots/README.md
+!results/README.md

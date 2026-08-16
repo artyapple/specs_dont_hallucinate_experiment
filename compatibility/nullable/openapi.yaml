@@ -1,0 +1,36 @@
+openapi: 3.0.3
+info:
+  title: Nullable compatibility probe
+  version: 1.0.0
+paths:
+  /tasks/{taskId}:
+    patch:
+      operationId: patchTask
+      parameters:
+        - name: taskId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchTaskRequest'
+      responses:
+        '204':
+          description: Probe response
+components:
+  schemas:
+    PatchTaskRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        title:
+          type: string
+        dueAt:
+          type: string
+          format: date-time
+          nullable: true

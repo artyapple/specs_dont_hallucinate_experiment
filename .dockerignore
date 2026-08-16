@@ -1,0 +1,7 @@
+.git
+.cache
+pilots
+results
+**/.env
+**/*.local
+**/coverage.out
