@@ -1,0 +1,3 @@
+96553fc45353234178db32aa8a17ed2bf40e7c89c77172d0b3412c8376acbe79  api/openapi.yaml
+38f2c1ce31a6afbccfb29a20e8c5059c1f050590fe038bf2756c878c4c47399e  db/migrations/000001_create_tasks.sql
+a95e3e8403359ea9b55d53bed05c08511ff9e072f2835ba6ed4ae70c4bc30014  db/queries/tasks.sql
