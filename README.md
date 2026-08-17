@@ -6,7 +6,7 @@ This repository will host the reproducible experiment for the talk `Specs Don't 
 
 Development infrastructure only. It is not ready for pilots or measured runs.
 
-Version selection, nullable-generation compatibility, the isolated tool bridge, a real-provider smoke, reproducible development OCI exports, baseline formal inputs, the Base 1 infrastructure skeleton, both canonical Base 2 services, and the first external baseline evaluator milestone are implemented. Both Base 2 variants pass the same evaluator. The Base 1 Task API is intentionally absent; task-specific evaluation, complete run orchestration, and remaining freeze requirements remain open.
+Version selection, nullable-generation compatibility, the isolated tool bridge, a real-provider smoke, reproducible development OCI exports, baseline formal inputs, the Base 1 infrastructure skeleton, both canonical Base 2 services, and the external baseline and task-specific evaluator are implemented. Both Base 2 variants and all six draft canonical task references pass the applicable evaluator cases. The Base 1 Task API is intentionally absent; independent review of task references, complete run orchestration, and remaining freeze requirements remain open.
 
 The authoritative design decisions currently live in `../experiment-decisions.md`. Before the first pilot, copy or link a frozen revision into this repository so every run can reference an immutable design artifact.
 

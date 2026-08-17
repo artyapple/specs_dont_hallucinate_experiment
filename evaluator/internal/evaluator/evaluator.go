@@ -13,7 +13,6 @@ import (
 	"os"
 	"os/exec"
 	"regexp"
-	"sort"
 	"strings"
 	"syscall"
 	"time"
@@ -26,22 +25,32 @@ import (
 
 const postgresImage = "docker.io/library/postgres:18.6@sha256:06cad38a5d9f5d24b4d83d86def30795d5e4b757fedbf5281172b576dedcd941"
 
-var baselineCaseIDs = []string{
-	"baseline.create-valid",
-	"baseline.create-invalid-title",
-	"baseline.get-existing",
-	"baseline.get-not-found",
-	"baseline.list-ordered",
-	"baseline.delete-existing",
-	"baseline.delete-again-not-found",
-	"contract.openapi-conformance",
-	"contract.problem-details",
-	"contract.database-consistency",
+const (
+	TaskBaseline   = "baseline-service"
+	TaskNullable   = "nullable-patch"
+	TaskLocking    = "optimistic-locking"
+	TaskPagination = "cursor-pagination"
+	taskAll        = "all"
+)
+
+type Options struct {
+	Candidate string
+	Task      string
+}
+
+func ValidTask(task string) bool {
+	switch task {
+	case TaskBaseline, TaskNullable, TaskLocking, TaskPagination:
+		return true
+	default:
+		return false
+	}
 }
 
 type Result struct {
 	SchemaVersion   int          `json:"schemaVersion"`
 	Candidate       string       `json:"candidate"`
+	Task            string       `json:"task"`
 	StartedAt       time.Time    `json:"startedAt"`
 	FinishedAt      time.Time    `json:"finishedAt"`
 	CompleteSuccess bool         `json:"completeSuccess"`
@@ -61,18 +70,21 @@ type SetupResult struct {
 type CaseResult struct {
 	ID         string `json:"id"`
 	Applicable bool   `json:"applicable"`
-	Passed     bool   `json:"passed"`
+	Passed     *bool  `json:"passed"`
 	Evidence   string `json:"evidence"`
 }
 
 type task struct {
-	ID        string `json:"id"`
-	Title     string `json:"title"`
-	CreatedAt string `json:"createdAt"`
+	ID        string          `json:"id"`
+	Title     string          `json:"title"`
+	CreatedAt string          `json:"createdAt"`
+	DueAt     json.RawMessage `json:"dueAt"`
+	Version   *int64          `json:"version"`
 }
 
 type taskList struct {
-	Items []task `json:"items"`
+	Items      []task          `json:"items"`
+	NextCursor json.RawMessage `json:"nextCursor"`
 }
 
 type problem struct {
@@ -86,18 +98,21 @@ type suite struct {
 	baseURL   string
 	client    *http.Client
 	db        *pgxpool.Pool
+	task      string
 	createdID string
 }
 
-func Evaluate(ctx context.Context, candidate string) (result Result) {
-	result = Result{SchemaVersion: 1, Candidate: candidate, StartedAt: time.Now().UTC()}
+func Evaluate(ctx context.Context, options Options) (result Result) {
+	definitions := caseDefinitions()
+	result = Result{SchemaVersion: 1, Candidate: options.Candidate, Task: options.Task, StartedAt: time.Now().UTC()}
 	defer func() { result.FinishedAt = time.Now().UTC() }()
 	failSetup := func(err error) Result {
 		result.Setup.Evidence = err.Error()
-		for _, id := range baselineCaseIDs {
-			result.BehaviorCases = append(result.BehaviorCases, CaseResult{ID: id, Applicable: true, Evidence: "not run: " + err.Error()})
-		}
+		result.BehaviorCases = setupFailureCases(definitions, options.Task, err)
 		return result
+	}
+	if !ValidTask(options.Task) {
+		return failSetup(fmt.Errorf("unsupported task %q", options.Task))
 	}
 
 	container, err := postgres.Run(ctx, postgresImage,
@@ -124,11 +139,11 @@ func Evaluate(ctx context.Context, candidate string) (result Result) {
 		return failSetup(fmt.Errorf("get PostgreSQL connection string: %w", err))
 	}
 
-	if output, err := runCommand(ctx, candidate, databaseURL, "make", "build"); err != nil {
+	if output, err := runCommand(ctx, options.Candidate, databaseURL, "make", "build"); err != nil {
 		return failSetup(fmt.Errorf("build candidate: %w: %s", err, output))
 	}
 	result.Setup.Build = true
-	if output, err := runCommand(ctx, candidate, databaseURL, "make", "migrate"); err != nil {
+	if output, err := runCommand(ctx, options.Candidate, databaseURL, "make", "migrate"); err != nil {
 		return failSetup(fmt.Errorf("apply candidate migrations: %w: %s", err, output))
 	}
 	result.Setup.Migrate = true
@@ -137,7 +152,7 @@ func Evaluate(ctx context.Context, candidate string) (result Result) {
 	if err != nil {
 		return failSetup(fmt.Errorf("allocate HTTP address: %w", err))
 	}
-	service, err := startService(candidate, databaseURL, addr)
+	service, err := startService(options.Candidate, databaseURL, addr)
 	if err != nil {
 		return failSetup(fmt.Errorf("start service: %w", err))
 	}
@@ -157,26 +172,28 @@ func Evaluate(ctx context.Context, candidate string) (result Result) {
 		baseURL: "http://" + addr,
 		client:  &http.Client{Timeout: 5 * time.Second},
 		db:      pool,
-	}
-	cases := []struct {
-		id string
-		fn func(context.Context) error
-	}{
-		{"baseline.create-valid", s.createValid},
-		{"baseline.create-invalid-title", s.createInvalidTitle},
-		{"baseline.get-existing", s.getExisting},
-		{"baseline.get-not-found", s.getNotFound},
-		{"baseline.list-ordered", s.listOrdered},
-		{"baseline.delete-existing", s.deleteExisting},
-		{"baseline.delete-again-not-found", s.deleteAgainNotFound},
-		{"contract.openapi-conformance", s.openapiConformance},
-		{"contract.problem-details", s.problemDetails},
-		{"contract.database-consistency", s.databaseConsistency},
+		task:    options.Task,
 	}
 	result.CompleteSuccess = true
-	for _, testCase := range cases {
-		err := testCase.fn(ctx)
-		caseResult := CaseResult{ID: testCase.id, Applicable: true, Passed: err == nil, Evidence: "passed"}
+	for _, definition := range definitions {
+		applicable := definition.Task == taskAll || definition.Task == options.Task
+		caseResult := CaseResult{ID: definition.ID, Applicable: applicable}
+		if !applicable {
+			result.BehaviorCases = append(result.BehaviorCases, caseResult)
+			continue
+		}
+		if definition.Task != taskAll {
+			if err := s.reset(ctx); err != nil {
+				caseResult.Passed = boolPointer(false)
+				caseResult.Evidence = "reset database: " + err.Error()
+				result.CompleteSuccess = false
+				result.BehaviorCases = append(result.BehaviorCases, caseResult)
+				continue
+			}
+		}
+		err := definition.Run(s, ctx)
+		caseResult.Passed = boolPointer(err == nil)
+		caseResult.Evidence = "passed"
 		if err != nil {
 			caseResult.Evidence = err.Error()
 			result.CompleteSuccess = false
@@ -185,6 +202,29 @@ func Evaluate(ctx context.Context, candidate string) (result Result) {
 	}
 	result.ServiceLogs = service.logs()
 	return result
+}
+
+func boolPointer(value bool) *bool {
+	return &value
+}
+
+func setupFailureCases(definitions []caseDefinition, selectedTask string, setupErr error) []CaseResult {
+	results := make([]CaseResult, 0, len(definitions))
+	for _, definition := range definitions {
+		applicable := definition.Task == taskAll || definition.Task == selectedTask
+		caseResult := CaseResult{ID: definition.ID, Applicable: applicable}
+		if applicable {
+			caseResult.Passed = boolPointer(false)
+			caseResult.Evidence = "not run: " + setupErr.Error()
+		}
+		results = append(results, caseResult)
+	}
+	return results
+}
+
+func (s *suite) reset(ctx context.Context) error {
+	_, err := s.db.Exec(ctx, "TRUNCATE TABLE tasks")
+	return err
 }
 
 func runCommand(ctx context.Context, dir, databaseURL, name string, args ...string) (string, error) {
@@ -293,7 +333,7 @@ func (s *suite) createValid(ctx context.Context) error {
 	if err := expectStatusAndType(response, http.StatusCreated, "application/json"); err != nil {
 		return err
 	}
-	created, err := decodeTask(response.Body)
+	created, err := s.decodeTask(response.Body)
 	if err != nil {
 		return err
 	}
@@ -338,7 +378,7 @@ func (s *suite) getExisting(ctx context.Context) error {
 	if err := expectStatusAndType(response, http.StatusOK, "application/json"); err != nil {
 		return err
 	}
-	got, err := decodeTask(response.Body)
+	got, err := s.decodeTask(response.Body)
 	if err != nil {
 		return err
 	}
@@ -374,7 +414,7 @@ func (s *suite) listOrdered(ctx context.Context) error {
 	if err := expectStatusAndType(response, http.StatusOK, "application/json"); err != nil {
 		return err
 	}
-	list, err := decodeTaskList(response.Body)
+	list, err := s.decodeTaskList(response.Body)
 	if err != nil {
 		return err
 	}
@@ -429,7 +469,7 @@ func (s *suite) openapiConformance(ctx context.Context) error {
 	if err := expectStatusAndType(response, http.StatusOK, "application/json"); err != nil {
 		return err
 	}
-	if _, err := decodeTaskList(response.Body); err != nil {
+	if _, err := s.decodeTaskList(response.Body); err != nil {
 		return fmt.Errorf("list response shape: %w", err)
 	}
 	response, err = s.jsonRequest(ctx, http.MethodPost, "/tasks", `{"title":"ok","extra":true}`)
@@ -468,7 +508,7 @@ func (s *suite) databaseConsistency(ctx context.Context) error {
 	if err := expectStatusAndType(response, http.StatusCreated, "application/json"); err != nil {
 		return err
 	}
-	created, err := decodeTask(response.Body)
+	created, err := s.decodeTask(response.Body)
 	if err != nil {
 		return err
 	}
@@ -499,6 +539,10 @@ func (s *suite) databaseConsistency(ctx context.Context) error {
 }
 
 func (s *suite) jsonRequest(ctx context.Context, method, path, body string) (*http.Response, error) {
+	return s.jsonRequestWithHeaders(ctx, method, path, body, nil)
+}
+
+func (s *suite) jsonRequestWithHeaders(ctx context.Context, method, path, body string, headers http.Header) (*http.Response, error) {
 	var reader io.Reader
 	if body != "" {
 		reader = strings.NewReader(body)
@@ -509,6 +553,11 @@ func (s *suite) jsonRequest(ctx context.Context, method, path, body string) (*ht
 	}
 	if body != "" {
 		request.Header.Set("Content-Type", "application/json")
+	}
+	for name, values := range headers {
+		for _, value := range values {
+			request.Header.Add(name, value)
+		}
 	}
 	return s.client.Do(request)
 }
@@ -541,17 +590,60 @@ func expectProblemResponse(response *http.Response, want problem) error {
 }
 
 func decodeTask(reader io.Reader) (task, error) {
+	return decodeTaskFor(reader, TaskBaseline)
+}
+
+func (s *suite) decodeTask(reader io.Reader) (task, error) {
+	return decodeTaskFor(reader, s.task)
+}
+
+func decodeTaskFor(reader io.Reader, selectedTask string) (task, error) {
 	var value task
 	if err := decodeExact(reader, &value); err != nil {
 		return task{}, fmt.Errorf("task response shape: %w", err)
 	}
-	if value.ID == "" || value.Title == "" || value.CreatedAt == "" {
-		return task{}, errors.New("task response has an empty required field")
+	if err := validateTaskValue(value, selectedTask); err != nil {
+		return task{}, err
 	}
 	return value, nil
 }
 
+func validateTaskValue(value task, selectedTask string) error {
+	if value.ID == "" || value.Title == "" || value.CreatedAt == "" {
+		return errors.New("task response has an empty required field")
+	}
+	switch selectedTask {
+	case TaskNullable:
+		if value.DueAt == nil {
+			return errors.New("task response is missing dueAt")
+		}
+		if value.Version != nil {
+			return errors.New("task response unexpectedly contains version")
+		}
+	case TaskLocking:
+		if value.Version == nil || *value.Version < 1 {
+			return errors.New("task response has invalid or missing version")
+		}
+		if value.DueAt != nil {
+			return errors.New("task response unexpectedly contains dueAt")
+		}
+	default:
+		if value.DueAt != nil || value.Version != nil {
+			return errors.New("baseline task response contains feature fields")
+		}
+	}
+	return nil
+}
+
 func decodeTaskList(reader io.Reader) (taskList, error) {
+	return decodeTaskListFor(reader, TaskBaseline)
+}
+
+func (s *suite) decodeTaskList(reader io.Reader) (taskList, error) {
+	return decodeTaskListFor(reader, s.task)
+}
+
+func decodeTaskListFor(reader io.Reader, selectedTask string) (taskList, error) {
 	var value taskList
 	if err := decodeExact(reader, &value); err != nil {
 		return taskList{}, err
@@ -560,9 +652,12 @@ func decodeTaskList(reader io.Reader) (taskList, error) {
 		return taskList{}, errors.New("items is missing or null")
 	}
 	for _, item := range value.Items {
-		if item.ID == "" || item.Title == "" || item.CreatedAt == "" {
-			return taskList{}, errors.New("list item has an empty required field")
+		if err := validateTaskValue(item, selectedTask); err != nil {
+			return taskList{}, fmt.Errorf("invalid list item: %w", err)
 		}
+	}
+	if selectedTask != TaskPagination && value.NextCursor != nil {
+		return taskList{}, errors.New("list response unexpectedly contains nextCursor")
 	}
 	return value, nil
 }
@@ -605,6 +700,14 @@ func notFoundProblem() problem {
 	return problem{Type: "urn:problem:not-found", Title: "Task not found", Status: 404, Detail: "The requested task does not exist."}
 }
 
+func preconditionRequiredProblem() problem {
+	return problem{Type: "urn:problem:precondition-required", Title: "Precondition required", Status: 428, Detail: "A valid If-Match header is required."}
+}
+
+func preconditionFailedProblem() problem {
+	return problem{Type: "urn:problem:precondition-failed", Title: "Precondition failed", Status: 412, Detail: "The supplied task version is stale."}
+}
+
 func taskIDs(tasks []task) []string {
 	ids := make([]string, len(tasks))
 	for index, item := range tasks {
@@ -641,11 +744,4 @@ func CheckProblem(status int, contentType string, body []byte, wantStatus int) e
 	want := validationProblem()
 	want.Status = wantStatus
 	return expectProblemResponse(response, want)
-}
-
-// ManifestIDs returns the implemented baseline IDs in deterministic order.
-func ManifestIDs() []string {
-	ids := append([]string(nil), baselineCaseIDs...)
-	sort.Strings(ids)
-	return ids
 }

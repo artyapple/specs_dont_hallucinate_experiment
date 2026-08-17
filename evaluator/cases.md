@@ -15,49 +15,48 @@ Status: draft. Freeze before measured runs.
 
 ## Nullable PATCH
 
-- Omitted `dueAt` preserves the previous value.
-- Explicit null clears the previous value.
-- Timestamp sets the value and returns UTC with exactly six fractional-second digits.
-- Existing and newly created tasks expose `dueAt: null` before a deadline is set.
-- POST rejects a supplied `dueAt` field.
-- `title: null` is rejected.
-- `title` can be changed without changing omitted `dueAt`.
-- Both fields can be changed together.
-- Empty patch is rejected.
-- Unknown fields are rejected.
-- Invalid title and timestamp are rejected.
-- Unknown task returns `404`.
-- GET after PATCH returns consistent state.
+- `nullable.omitted-preserves`: Omitted `dueAt` preserves the previous value.
+- `nullable.null-clears`: Explicit null clears the previous value.
+- `nullable.value-sets`: Timestamp sets the value and returns UTC with exactly six fractional-second digits.
+- `nullable.initial-null`: Existing and newly created tasks expose `dueAt: null` before a deadline is set.
+- `nullable.post-rejects-due-at`: POST rejects a supplied `dueAt` field.
+- `nullable.title-null-rejected`: `title: null` is rejected.
+- `nullable.title-only`: `title` can be changed without changing omitted `dueAt`.
+- `nullable.both-fields`: Both fields can be changed together.
+- `nullable.empty-rejected`: Empty patch is rejected.
+- `nullable.unknown-field-rejected`: Unknown fields are rejected.
+- `nullable.invalid-title`: Invalid blank and overlong titles are rejected.
+- `nullable.invalid-timestamp`: Invalid timestamps are rejected.
+- `nullable.unknown-task`: Unknown task returns `404`.
+- `nullable.get-consistent`: GET after PATCH returns consistent state.
 - Baseline create, get, list, and delete behavior remains valid.
 
 ## Optimistic Locking
 
-- New task starts at version 1 and returns ETag `"1"`.
-- Task JSON includes the current integer version.
-- GET by ID returns the current strong ETag.
-- Collection GET returns versioned Task objects without requiring a collection ETag.
-- PUT rejects unknown fields and applies baseline title normalization.
-- Correct `If-Match` updates title, increments version, and returns the new ETag.
-- Missing `If-Match` returns `428`.
-- Zero, signed value, leading-zero value, overflow, unquoted value, weak tag, wildcard, and list return `400`.
-- Stale ETag returns `412` without changing state.
-- Unknown task returns `404`.
-- Two concurrent updates using the same ETag cannot both succeed.
-- Exactly one concurrent update succeeds and the losing request returns `412`.
+- `locking.initial-version`: New task starts at version 1, returns ETag `"1"`, and appears with an integer version in the collection.
+- `locking.get-etag`: GET by ID returns the current strong ETag matching the body version.
+- `locking.unknown-field`: PUT rejects unknown fields without mutation or version increment.
+- `locking.invalid-title`: PUT rejects blank and overlong titles without mutation or version increment.
+- `locking.put-success`: Correct `If-Match` normalizes the title, increments version, and returns the new ETag.
+- `locking.missing-if-match`: Missing `If-Match` returns `428`.
+- `locking.malformed-if-match`: Zero, signed value, leading-zero value, overflow, unquoted value, weak tag, wildcard, and list return `400`.
+- `locking.stale-if-match`: Stale ETag returns `412` without changing state.
+- `locking.unknown-task`: Unknown task with a valid ETag returns `404`.
+- `locking.concurrent-single-winner`: Exactly one of two concurrent updates using the same ETag succeeds and the loser returns `412`.
 - Baseline operations remain valid with the versioned representation.
 
 ## Cursor Pagination
 
-- Missing limit uses 20.
-- Limits 1 and 100 are accepted.
-- Limit 0, negative values, and values above 100 return `400`.
-- A clearly malformed cursor string returns `400`.
-- Empty dataset returns an empty page without `nextCursor`.
-- One page returns all items without `nextCursor`.
-- Multiple pages return every fixed row exactly once in order.
-- Identical timestamps are ordered by UUID without duplicates or gaps.
-- Final page omits `nextCursor`.
-- A cursor obtained from the API still yields a valid empty final page if all later fixed rows are deleted before reuse.
+- `pagination.default-limit`: Missing limit uses 20.
+- `pagination.limit-bounds`: Limits 1 and 100 are accepted.
+- `pagination.invalid-limit`: Limit 0, negative values, values above 100, and non-integers return `400`.
+- `pagination.malformed-cursor`: A clearly malformed cursor string returns `400`.
+- `pagination.empty`: Empty dataset returns an empty page without `nextCursor`.
+- `pagination.single-page`: One page returns all items without `nextCursor`.
+- `pagination.multiple-pages`: Multiple pages return every fixed row exactly once in order.
+- `pagination.timestamp-tie`: Identical timestamps are ordered by UUID without duplicates or gaps.
+- `pagination.final-page`: Final page omits `nextCursor`.
+- `pagination.cursor-after-delete`: A cursor obtained from the API still yields a valid empty final page if all later fixed rows are deleted before reuse.
 - Baseline create, get, and delete behavior remains valid.
 
 ## Contract Conformance

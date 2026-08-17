@@ -1,0 +1,191 @@
+diff --git a/api/openapi.yaml b/api/openapi.yaml
+index 809118d..81c0b2e 100644
+--- a/api/openapi.yaml
++++ b/api/openapi.yaml
+@@ -17,6 +17,9 @@ paths:
+       responses:
+         '201':
+           description: Task created
++          headers:
++            ETag:
++              $ref: '#/components/headers/TaskETag'
+           content:
+             application/json:
+               schema:
+@@ -44,6 +47,9 @@ paths:
+       responses:
+         '200':
+           description: Task found
++          headers:
++            ETag:
++              $ref: '#/components/headers/TaskETag'
+           content:
+             application/json:
+               schema:
+@@ -54,6 +60,36 @@ paths:
+           $ref: '#/components/responses/NotFoundProblem'
+         '500':
+           $ref: '#/components/responses/InternalProblem'
++    put:
++      operationId: updateTask
++      parameters:
++        - $ref: '#/components/parameters/IfMatch'
++      requestBody:
++        required: true
++        content:
++          application/json:
++            schema:
++              $ref: '#/components/schemas/UpdateTaskRequest'
++      responses:
++        '200':
++          description: Task updated
++          headers:
++            ETag:
++              $ref: '#/components/headers/TaskETag'
++          content:
++            application/json:
++              schema:
++                $ref: '#/components/schemas/Task'
++        '400':
++          $ref: '#/components/responses/ValidationProblem'
++        '404':
++          $ref: '#/components/responses/NotFoundProblem'
++        '412':
++          $ref: '#/components/responses/PreconditionFailedProblem'
++        '428':
++          $ref: '#/components/responses/PreconditionRequiredProblem'
++        '500':
++          $ref: '#/components/responses/InternalProblem'
+     delete:
+       operationId: deleteTask
+       responses:
+@@ -74,6 +110,21 @@ components:
+       schema:
+         type: string
+         format: uuid
++    IfMatch:
++      name: If-Match
++      in: header
++      required: true
++      schema:
++        type: string
++        pattern: '^"[1-9][0-9]*"$'
++      description: Exactly one strong integer ETag fitting the signed 64-bit range.
++  headers:
++    TaskETag:
++      required: true
++      schema:
++        type: string
++        pattern: '^"[1-9][0-9]*"$'
++      description: Strong ETag containing the task version.
+   schemas:
+     Task:
+       type: object
+@@ -82,6 +133,7 @@ components:
+         - id
+         - title
+         - createdAt
++        - version
+       properties:
+         id:
+           type: string
+@@ -96,6 +148,10 @@ components:
+           format: date-time
+           x-go-type: string
+           description: UTC RFC3339 timestamp returned with exactly six fractional-second digits.
++        version:
++          type: integer
++          format: int64
++          minimum: 1
+     CreateTaskRequest:
+       type: object
+       additionalProperties: false
+@@ -107,6 +163,17 @@ components:
+           minLength: 1
+           maxLength: 200
+           description: Input is trimmed before validating 1 to 200 Unicode code points.
++    UpdateTaskRequest:
++      type: object
++      additionalProperties: false
++      required:
++        - title
++      properties:
++        title:
++          type: string
++          minLength: 1
++          maxLength: 200
++          description: Input is trimmed before validating 1 to 200 Unicode code points.
+     TaskList:
+       type: object
+       additionalProperties: false
+@@ -160,6 +227,28 @@ components:
+             title: Task not found
+             status: 404
+             detail: The requested task does not exist.
++    PreconditionRequiredProblem:
++      description: If-Match is missing
++      content:
++        application/problem+json:
++          schema:
++            $ref: '#/components/schemas/Problem'
++          example:
++            type: urn:problem:precondition-required
++            title: Precondition required
++            status: 428
++            detail: A valid If-Match header is required.
++    PreconditionFailedProblem:
++      description: The supplied task version is stale
++      content:
++        application/problem+json:
++          schema:
++            $ref: '#/components/schemas/Problem'
++          example:
++            type: urn:problem:precondition-failed
++            title: Precondition failed
++            status: 412
++            detail: The supplied task version is stale.
+     InternalProblem:
+       description: Unexpected server failure
+       content:
+diff --git a/db/migrations/000002_add_task_version.sql b/db/migrations/000002_add_task_version.sql
+new file mode 100644
+index 0000000..d5daffa
+--- /dev/null
++++ b/db/migrations/000002_add_task_version.sql
+@@ -0,0 +1,3 @@
++ALTER TABLE tasks
++ADD COLUMN version bigint NOT NULL DEFAULT 1,
++ADD CONSTRAINT tasks_version_positive CHECK (version > 0);
+diff --git a/db/queries/tasks.sql b/db/queries/tasks.sql
+index e2b964f..ce8dc32 100644
+--- a/db/queries/tasks.sql
++++ b/db/queries/tasks.sql
+@@ -1,15 +1,15 @@
+ -- name: CreateTask :one
+ INSERT INTO tasks (id, title)
+ VALUES ($1, $2)
+-RETURNING id, title, created_at;
++RETURNING id, title, created_at, version;
+ 
+ -- name: GetTask :one
+-SELECT id, title, created_at
++SELECT id, title, created_at, version
+ FROM tasks
+ WHERE id = $1;
+ 
+ -- name: ListTasks :many
+-SELECT id, title, created_at
++SELECT id, title, created_at, version
+ FROM tasks
+ ORDER BY created_at ASC, id ASC;
+ 
+@@ -17,3 +17,9 @@ ORDER BY created_at ASC, id ASC;
+ DELETE FROM tasks
+ WHERE id = $1
+ RETURNING id;
++
++-- name: UpdateTask :one
++UPDATE tasks
++SET title = $2, version = version + 1
++WHERE id = $1 AND version = $3
++RETURNING id, title, created_at, version;

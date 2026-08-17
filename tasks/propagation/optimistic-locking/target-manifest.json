@@ -1,0 +1,20 @@
+{
+  "$schema": "../../../schemas/target-manifest.schema.json",
+  "schemaVersion": 1,
+  "status": "draft",
+  "formalPatchSha256": "9743b7be3acd504b78fe595230845a238afdecce01fbf9d144e92370765e238c",
+  "files": [
+    {
+      "path": "api/openapi.yaml",
+      "sha256": "6aa9d066fc31ffb4ec868fea69ed57b5ee1b6b33e2c13dcaf20a2e23a287efca"
+    },
+    {
+      "path": "db/migrations/000002_add_task_version.sql",
+      "sha256": "f5a5fe45ee80f3fe98278d65abca2f0c5e3c1e87b1a84c1e532d289374a87cdc"
+    },
+    {
+      "path": "db/queries/tasks.sql",
+      "sha256": "4882cce1ae8b95505cb1981455008caadc7c4f18a84188ffa409678c7d3b6781"
+    }
+  ]
+}

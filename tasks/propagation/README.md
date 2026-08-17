@@ -8,7 +8,7 @@ Each propagation-only task starts from a canonical Base 2 repository with a byte
 
 The agent receives the same business semantics as the corresponding full-workflow task, but must not redesign the target formal artifacts.
 
-Required future files:
+Canonical draft files:
 
 ```text
 nullable-patch/
@@ -26,4 +26,4 @@ cursor-pagination/
 
 Each task has one content-addressed formal patch. The harness applies that same patch to both canonical bases. Treatment-specific implementation changes are produced only by the agent after the run starts.
 
-`TODO`: Generate and freeze all three formal patch files and manifests after Base 2 is complete.
+The three draft patches and manifests are implemented. Run `make validate-task-targets` from the experiment root to verify patch hashes, apply every patch to the baseline formal tree, compare the patched tree byte-for-byte with both canonical task solutions, and validate every target file hash. Freeze them only during the global freeze.

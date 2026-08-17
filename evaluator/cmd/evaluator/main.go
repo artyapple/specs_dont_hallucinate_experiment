@@ -14,10 +14,15 @@ import (
 
 func main() {
 	candidate := flag.String("candidate", "", "path to the candidate repository")
+	task := flag.String("task", "", "candidate task: baseline-service, nullable-patch, optimistic-locking, or cursor-pagination")
 	output := flag.String("output", "-", "result JSON path, or - for stdout")
 	flag.Parse()
 	if *candidate == "" {
 		fmt.Fprintln(os.Stderr, "-candidate is required")
+		os.Exit(2)
+	}
+	if !evaluator.ValidTask(*task) {
+		fmt.Fprintln(os.Stderr, "-task must be baseline-service, nullable-patch, optimistic-locking, or cursor-pagination")
 		os.Exit(2)
 	}
 
@@ -28,7 +33,7 @@ func main() {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
-	result := evaluator.Evaluate(ctx, absCandidate)
+	result := evaluator.Evaluate(ctx, evaluator.Options{Candidate: absCandidate, Task: *task})
 
 	var writer *os.File
 	if *output == "-" {

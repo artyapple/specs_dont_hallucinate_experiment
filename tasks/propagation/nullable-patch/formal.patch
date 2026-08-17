@@ -1,0 +1,110 @@
+--- a/api/openapi.yaml
++++ b/api/openapi.yaml
+@@ -65,6 +65,27 @@
+           $ref: '#/components/responses/NotFoundProblem'
+         '500':
+           $ref: '#/components/responses/InternalProblem'
++    patch:
++      operationId: patchTask
++      requestBody:
++        required: true
++        content:
++          application/json:
++            schema:
++              $ref: '#/components/schemas/PatchTaskRequest'
++      responses:
++        '200':
++          description: Task updated
++          content:
++            application/json:
++              schema:
++                $ref: '#/components/schemas/Task'
++        '400':
++          $ref: '#/components/responses/ValidationProblem'
++        '404':
++          $ref: '#/components/responses/NotFoundProblem'
++        '500':
++          $ref: '#/components/responses/InternalProblem'
+ components:
+   parameters:
+     TaskId:
+@@ -82,6 +103,7 @@
+         - id
+         - title
+         - createdAt
++        - dueAt
+       properties:
+         id:
+           type: string
+@@ -96,6 +118,12 @@
+           format: date-time
+           x-go-type: string
+           description: UTC RFC3339 timestamp returned with exactly six fractional-second digits.
++        dueAt:
++          type: string
++          format: date-time
++          nullable: true
++          x-go-type: string
++          description: Nullable deadline returned in UTC with exactly six fractional-second digits.
+     CreateTaskRequest:
+       type: object
+       additionalProperties: false
+@@ -117,6 +145,21 @@
+           type: array
+           items:
+             $ref: '#/components/schemas/Task'
++    PatchTaskRequest:
++      type: object
++      additionalProperties: false
++      minProperties: 1
++      properties:
++        title:
++          type: string
++          minLength: 1
++          maxLength: 200
++          description: Input is trimmed before validating 1 to 200 Unicode code points.
++        dueAt:
++          type: string
++          format: date-time
++          nullable: true
++          description: Omitted preserves the deadline, null clears it, and a timestamp sets it.
+     Problem:
+       type: object
+       additionalProperties: false
+--- /dev/null
++++ b/db/migrations/000002_add_task_due_at.sql
+@@ -0,0 +1,2 @@
++ALTER TABLE tasks
++ADD COLUMN due_at timestamp(6) with time zone;
+--- a/db/queries/tasks.sql
++++ b/db/queries/tasks.sql
+@@ -1,15 +1,15 @@
+ -- name: CreateTask :one
+ INSERT INTO tasks (id, title)
+ VALUES ($1, $2)
+-RETURNING id, title, created_at;
++RETURNING id, title, created_at, due_at;
+ 
+ -- name: GetTask :one
+-SELECT id, title, created_at
++SELECT id, title, created_at, due_at
+ FROM tasks
+ WHERE id = $1;
+ 
+ -- name: ListTasks :many
+-SELECT id, title, created_at
++SELECT id, title, created_at, due_at
+ FROM tasks
+ ORDER BY created_at ASC, id ASC;
+ 
+@@ -17,3 +17,10 @@
+ DELETE FROM tasks
+ WHERE id = $1
+ RETURNING id;
++
++-- name: PatchTask :one
++UPDATE tasks
++SET title = CASE WHEN sqlc.arg(title_present)::boolean THEN sqlc.arg(title)::text ELSE title END,
++    due_at = CASE WHEN sqlc.arg(due_at_present)::boolean THEN sqlc.narg(due_at)::timestamp with time zone ELSE due_at END
++WHERE id = sqlc.arg(id)::uuid
++RETURNING id, title, created_at, due_at;

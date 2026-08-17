@@ -22,6 +22,7 @@
     {"id": "nullable.title-null-rejected", "task": "nullable-patch", "required": true},
     {"id": "nullable.invalid-title", "task": "nullable-patch", "required": true},
     {"id": "nullable.invalid-timestamp", "task": "nullable-patch", "required": true},
+    {"id": "nullable.unknown-task", "task": "nullable-patch", "required": true},
     {"id": "nullable.get-consistent", "task": "nullable-patch", "required": true},
     {"id": "locking.initial-version", "task": "optimistic-locking", "required": true},
     {"id": "locking.get-etag", "task": "optimistic-locking", "required": true},

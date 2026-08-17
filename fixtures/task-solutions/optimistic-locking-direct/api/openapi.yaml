@@ -1,0 +1,262 @@
+openapi: 3.0.3
+info:
+  title: Task Service
+  version: 1.0.0
+servers:
+  - url: http://localhost:8080
+paths:
+  /tasks:
+    post:
+      operationId: createTask
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateTaskRequest'
+      responses:
+        '201':
+          description: Task created
+          headers:
+            ETag:
+              $ref: '#/components/headers/TaskETag'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Task'
+        '400':
+          $ref: '#/components/responses/ValidationProblem'
+        '500':
+          $ref: '#/components/responses/InternalProblem'
+    get:
+      operationId: listTasks
+      responses:
+        '200':
+          description: Tasks ordered by createdAt and id in ascending order
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskList'
+        '500':
+          $ref: '#/components/responses/InternalProblem'
+  /tasks/{taskId}:
+    parameters:
+      - $ref: '#/components/parameters/TaskId'
+    get:
+      operationId: getTask
+      responses:
+        '200':
+          description: Task found
+          headers:
+            ETag:
+              $ref: '#/components/headers/TaskETag'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Task'
+        '400':
+          $ref: '#/components/responses/ValidationProblem'
+        '404':
+          $ref: '#/components/responses/NotFoundProblem'
+        '500':
+          $ref: '#/components/responses/InternalProblem'
+    put:
+      operationId: updateTask
+      parameters:
+        - $ref: '#/components/parameters/IfMatch'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateTaskRequest'
+      responses:
+        '200':
+          description: Task updated
+          headers:
+            ETag:
+              $ref: '#/components/headers/TaskETag'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Task'
+        '400':
+          $ref: '#/components/responses/ValidationProblem'
+        '404':
+          $ref: '#/components/responses/NotFoundProblem'
+        '412':
+          $ref: '#/components/responses/PreconditionFailedProblem'
+        '428':
+          $ref: '#/components/responses/PreconditionRequiredProblem'
+        '500':
+          $ref: '#/components/responses/InternalProblem'
+    delete:
+      operationId: deleteTask
+      responses:
+        '204':
+          description: Task deleted
+        '400':
+          $ref: '#/components/responses/ValidationProblem'
+        '404':
+          $ref: '#/components/responses/NotFoundProblem'
+        '500':
+          $ref: '#/components/responses/InternalProblem'
+components:
+  parameters:
+    TaskId:
+      name: taskId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    IfMatch:
+      name: If-Match
+      in: header
+      required: true
+      schema:
+        type: string
+        pattern: '^"[1-9][0-9]*"$'
+      description: Exactly one strong integer ETag fitting the signed 64-bit range.
+  headers:
+    TaskETag:
+      required: true
+      schema:
+        type: string
+        pattern: '^"[1-9][0-9]*"$'
+      description: Strong ETag containing the task version.
+  schemas:
+    Task:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - title
+        - createdAt
+        - version
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+          description: Trimmed title containing 1 to 200 Unicode code points.
+        createdAt:
+          type: string
+          format: date-time
+          x-go-type: string
+          description: UTC RFC3339 timestamp returned with exactly six fractional-second digits.
+        version:
+          type: integer
+          format: int64
+          minimum: 1
+    CreateTaskRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - title
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+          description: Input is trimmed before validating 1 to 200 Unicode code points.
+    UpdateTaskRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - title
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+          description: Input is trimmed before validating 1 to 200 Unicode code points.
+    TaskList:
+      type: object
+      additionalProperties: false
+      required:
+        - items
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Task'
+    Problem:
+      type: object
+      additionalProperties: false
+      required:
+        - type
+        - title
+        - status
+        - detail
+      properties:
+        type:
+          type: string
+        title:
+          type: string
+        status:
+          type: integer
+          minimum: 400
+          maximum: 599
+        detail:
+          type: string
+          minLength: 1
+  responses:
+    ValidationProblem:
+      description: Invalid request
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            type: urn:problem:validation
+            title: Validation failed
+            status: 400
+            detail: The request is invalid.
+    NotFoundProblem:
+      description: Task does not exist
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            type: urn:problem:not-found
+            title: Task not found
+            status: 404
+            detail: The requested task does not exist.
+    PreconditionRequiredProblem:
+      description: If-Match is missing
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            type: urn:problem:precondition-required
+            title: Precondition required
+            status: 428
+            detail: A valid If-Match header is required.
+    PreconditionFailedProblem:
+      description: The supplied task version is stale
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            type: urn:problem:precondition-failed
+            title: Precondition failed
+            status: 412
+            detail: The supplied task version is stale.
+    InternalProblem:
+      description: Unexpected server failure
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            type: urn:problem:internal
+            title: Internal server error
+            status: 500
+            detail: The server could not complete the request.

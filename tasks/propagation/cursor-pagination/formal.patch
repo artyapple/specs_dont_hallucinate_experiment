@@ -1,0 +1,61 @@
+diff --git a/api/openapi.yaml b/api/openapi.yaml
+index 809118d..bab95aa 100644
+--- a/api/openapi.yaml
++++ b/api/openapi.yaml
+@@ -27,6 +27,21 @@ paths:
+           $ref: '#/components/responses/InternalProblem'
+     get:
+       operationId: listTasks
++      parameters:
++        - name: limit
++          in: query
++          required: false
++          schema:
++            type: integer
++            minimum: 1
++            maximum: 100
++            default: 20
++        - name: cursor
++          in: query
++          required: false
++          schema:
++            type: string
++            minLength: 1
+       responses:
+         '200':
+           description: Tasks ordered by createdAt and id in ascending order
+@@ -34,6 +49,8 @@ paths:
+             application/json:
+               schema:
+                 $ref: '#/components/schemas/TaskList'
++        '400':
++          $ref: '#/components/responses/ValidationProblem'
+         '500':
+           $ref: '#/components/responses/InternalProblem'
+   /tasks/{taskId}:
+@@ -117,6 +134,9 @@ components:
+           type: array
+           items:
+             $ref: '#/components/schemas/Task'
++        nextCursor:
++          type: string
++          minLength: 1
+     Problem:
+       type: object
+       additionalProperties: false
+diff --git a/db/queries/tasks.sql b/db/queries/tasks.sql
+index e2b964f..120dcc2 100644
+--- a/db/queries/tasks.sql
++++ b/db/queries/tasks.sql
+@@ -11,7 +11,10 @@ WHERE id = $1;
+ -- name: ListTasks :many
+ SELECT id, title, created_at
+ FROM tasks
+-ORDER BY created_at ASC, id ASC;
++WHERE NOT $1::boolean
++   OR (created_at, id) > ($2::timestamptz, $3::uuid)
++ORDER BY created_at ASC, id ASC
++LIMIT $4::integer;
+ 
+ -- name: DeleteTask :one
+ DELETE FROM tasks

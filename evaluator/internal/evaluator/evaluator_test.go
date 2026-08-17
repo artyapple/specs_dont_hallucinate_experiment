@@ -3,6 +3,7 @@ package evaluator
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -133,7 +134,114 @@ func TestKnownBrokenNonPersistingCandidateIsRejected(t *testing.T) {
 	}
 }
 
-func TestBaselineCaseIDsAgree(t *testing.T) {
+func TestKnownBrokenNullableOmittedValueIsRejected(t *testing.T) {
+	dueAt := ""
+	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		writer.Header().Set("Content-Type", "application/json")
+		switch request.Method {
+		case http.MethodPost:
+			writeNullableTask(writer, "original", "")
+		case http.MethodPatch:
+			var body map[string]json.RawMessage
+			if err := json.NewDecoder(request.Body).Decode(&body); err != nil {
+				t.Error(err)
+				writer.WriteHeader(http.StatusBadRequest)
+				return
+			}
+			title := "original"
+			if raw, ok := body["dueAt"]; ok {
+				if err := json.Unmarshal(raw, &dueAt); err != nil {
+					t.Error(err)
+				}
+			} else {
+				// Known bug: an omitted dueAt is treated as null and clears the value.
+				dueAt = ""
+				_ = json.Unmarshal(body["title"], &title)
+			}
+			writeNullableTask(writer, title, dueAt)
+		default:
+			writer.WriteHeader(http.StatusMethodNotAllowed)
+		}
+	}))
+	defer server.Close()
+
+	broken := &suite{baseURL: server.URL, client: server.Client(), task: TaskNullable}
+	if err := broken.nullableOmittedPreserves(context.Background()); err == nil {
+		t.Fatal("known-broken omitted-as-null candidate passed nullable.omitted-preserves")
+	}
+}
+
+func TestKnownBrokenLockingTwoWinnersIsRejected(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		writer.Header().Set("Content-Type", "application/json")
+		switch request.Method {
+		case http.MethodPost:
+			writer.Header().Set("ETag", `"1"`)
+			fmt.Fprint(writer, `{"id":"00000000-0000-4000-8000-000000000001","title":"original","createdAt":"2000-01-01T00:00:00.000000Z","version":1}`)
+		case http.MethodPut:
+			var body struct {
+				Title string `json:"title"`
+			}
+			_ = json.NewDecoder(request.Body).Decode(&body)
+			writer.Header().Set("ETag", `"2"`)
+			fmt.Fprintf(writer, `{"id":"00000000-0000-4000-8000-000000000001","title":%q,"createdAt":"2000-01-01T00:00:00.000000Z","version":2}`, body.Title)
+		default:
+			writer.WriteHeader(http.StatusMethodNotAllowed)
+		}
+	}))
+	defer server.Close()
+
+	broken := &suite{baseURL: server.URL, client: server.Client(), task: TaskLocking}
+	if err := broken.lockingConcurrentSingleWinner(context.Background()); err == nil {
+		t.Fatal("known-broken non-atomic candidate passed locking.concurrent-single-winner")
+	}
+}
+
+func TestKnownBrokenPaginationDuplicateIsRejected(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		writer.Header().Set("Content-Type", "application/json")
+		if request.URL.Query().Get("cursor") == "" {
+			fmt.Fprint(writer, `{"items":[`+
+				paginationTaskJSON("00000000-0000-4000-8000-000000000001")+`,`+
+				paginationTaskJSON("00000000-0000-4000-8000-000000000002")+
+				`],"nextCursor":"next"}`)
+			return
+		}
+		fmt.Fprint(writer, `{"items":[`+
+			paginationTaskJSON("00000000-0000-4000-8000-000000000002")+`,`+
+			paginationTaskJSON("00000000-0000-4000-8000-000000000003")+
+			`]}`)
+	}))
+	defer server.Close()
+
+	broken := &suite{baseURL: server.URL, client: server.Client(), task: TaskPagination}
+	got, err := broken.collectPages(context.Background(), 2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []string{
+		"00000000-0000-4000-8000-000000000001",
+		"00000000-0000-4000-8000-000000000002",
+		"00000000-0000-4000-8000-000000000003",
+	}
+	if err := checkStringIDs(got, want); err == nil {
+		t.Fatal("known-broken duplicate candidate passed pagination.multiple-pages")
+	}
+}
+
+func writeNullableTask(writer http.ResponseWriter, title, dueAt string) {
+	if dueAt == "" {
+		fmt.Fprintf(writer, `{"id":"00000000-0000-4000-8000-000000000001","title":%q,"createdAt":"2000-01-01T00:00:00.000000Z","dueAt":null}`, title)
+		return
+	}
+	fmt.Fprintf(writer, `{"id":"00000000-0000-4000-8000-000000000001","title":%q,"createdAt":"2000-01-01T00:00:00.000000Z","dueAt":%q}`, title, nullableSetUTC)
+}
+
+func paginationTaskJSON(id string) string {
+	return fmt.Sprintf(`{"id":%q,"title":"task","createdAt":"2000-01-01T00:00:00.000000Z"}`, id)
+}
+
+func TestCaseRegistryManifestAndSchemaAgree(t *testing.T) {
 	root := filepath.Clean(filepath.Join("..", ".."))
 	manifestData, err := os.ReadFile(filepath.Join(root, "case-manifest.json"))
 	if err != nil {
@@ -149,8 +257,13 @@ func TestBaselineCaseIDsAgree(t *testing.T) {
 		t.Fatal(err)
 	}
 	manifestIDs := make(map[string]bool)
+	manifestTasks := make(map[string]string)
 	for _, item := range manifest.Cases {
+		if manifestIDs[item.ID] {
+			t.Errorf("duplicate case ID %s in manifest", item.ID)
+		}
 		manifestIDs[item.ID] = true
+		manifestTasks[item.ID] = item.Task
 	}
 
 	schemaData, err := os.ReadFile(filepath.Join(root, "..", "schemas", "run-result.schema.json"))
@@ -178,6 +291,19 @@ func TestBaselineCaseIDsAgree(t *testing.T) {
 			t.Errorf("implemented case %s is absent from cases.md", id)
 		}
 	}
+	registryIDs := make(map[string]bool)
+	for _, definition := range caseDefinitions() {
+		if registryIDs[definition.ID] {
+			t.Errorf("duplicate case ID %s in registry", definition.ID)
+		}
+		registryIDs[definition.ID] = true
+		if manifestTasks[definition.ID] != definition.Task {
+			t.Errorf("case %s task = %q in registry, want manifest task %q", definition.ID, definition.Task, manifestTasks[definition.ID])
+		}
+		if definition.Run == nil {
+			t.Errorf("case %s has no implementation", definition.ID)
+		}
+	}
 
 	allManifest := make([]string, 0, len(manifestIDs))
 	allSchema := make([]string, 0, len(schemaIDs))
@@ -191,6 +317,43 @@ func TestBaselineCaseIDsAgree(t *testing.T) {
 	sort.Strings(allSchema)
 	if !reflect.DeepEqual(allManifest, allSchema) {
 		t.Errorf("manifest and result schema case IDs differ\nmanifest: %v\nschema: %v", allManifest, allSchema)
+	}
+}
+
+func TestCaseApplicabilityAndNullPassedRepresentation(t *testing.T) {
+	definitions := caseDefinitions()
+	expectedApplicable := map[string]int{
+		TaskBaseline:   10,
+		TaskNullable:   24,
+		TaskLocking:    20,
+		TaskPagination: 20,
+	}
+	for selectedTask, expected := range expectedApplicable {
+		results := setupFailureCases(definitions, selectedTask, errors.New("setup failed"))
+		if len(results) != len(definitions) {
+			t.Fatalf("task %s emitted %d cases, want complete roster of %d", selectedTask, len(results), len(definitions))
+		}
+		applicable := 0
+		for _, result := range results {
+			if result.Applicable {
+				applicable++
+				if result.Passed == nil || *result.Passed {
+					t.Errorf("applicable setup-failure case %s passed = %v, want false", result.ID, result.Passed)
+				}
+			} else if result.Passed != nil {
+				t.Errorf("non-applicable case %s passed = %v, want null", result.ID, *result.Passed)
+			}
+		}
+		if applicable != expected {
+			t.Errorf("task %s applicable cases = %d, want %d", selectedTask, applicable, expected)
+		}
+		encoded, err := json.Marshal(results)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !strings.Contains(string(encoded), `"applicable":false,"passed":null`) {
+			t.Errorf("task %s output does not encode non-applicable passed as null", selectedTask)
+		}
 	}
 }
 
