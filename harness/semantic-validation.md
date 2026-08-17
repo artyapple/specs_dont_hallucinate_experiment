@@ -53,7 +53,7 @@ For `infrastructure-failure` and `harness-failure`, evaluation is null and no be
 
 ## Derived Complete Success
 
-The evaluator derives `completeSuccess`; agents and analysis code do not supply it independently.
+The harness run-result assembly derives `completeSuccess` from evaluator output and its own gate checks; agents and analysis code do not supply it independently.
 
 ```text
 completeSuccess =

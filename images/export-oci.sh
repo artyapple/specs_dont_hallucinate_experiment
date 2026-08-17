@@ -45,6 +45,7 @@ build_image() {
 build_image coordinator images/coordinator.Dockerfile "" specs-export/coordinator:1.18.18
 build_image tool-direct images/tool.Dockerfile direct specs-export/tool-direct:go1.26.6
 build_image tool-codegen images/tool.Dockerfile codegen specs-export/tool-codegen:go1.26.6
+build_image evaluator images/evaluator.Dockerfile "" specs-export/evaluator:go1.26.6
 
 jq -n \
   --arg runId "$RUN_ID" \
@@ -56,6 +57,8 @@ jq -n \
   --arg directArchiveSha256 "$(shasum -a 256 "$OUTPUT_DIR/tool-direct.oci.tar" | cut -d ' ' -f 1)" \
   --arg codegenDigest "$(jq -er '."containerimage.digest"' "$OUTPUT_DIR/tool-codegen.build-metadata.json")" \
   --arg codegenArchiveSha256 "$(shasum -a 256 "$OUTPUT_DIR/tool-codegen.oci.tar" | cut -d ' ' -f 1)" \
+  --arg evaluatorDigest "$(jq -er '."containerimage.digest"' "$OUTPUT_DIR/evaluator.build-metadata.json")" \
+  --arg evaluatorArchiveSha256 "$(shasum -a 256 "$OUTPUT_DIR/evaluator.oci.tar" | cut -d ' ' -f 1)" \
   '{
     runId: $runId,
     kind: "development-oci-export",
@@ -68,7 +71,8 @@ jq -n \
     images: {
       coordinator: {tag: "specs-export/coordinator:1.18.18", digest: $coordinatorDigest, archive: "coordinator.oci.tar", archiveSha256: $coordinatorArchiveSha256},
       toolDirect: {tag: "specs-export/tool-direct:go1.26.6", digest: $directDigest, archive: "tool-direct.oci.tar", archiveSha256: $directArchiveSha256},
-      toolCodegen: {tag: "specs-export/tool-codegen:go1.26.6", digest: $codegenDigest, archive: "tool-codegen.oci.tar", archiveSha256: $codegenArchiveSha256}
+      toolCodegen: {tag: "specs-export/tool-codegen:go1.26.6", digest: $codegenDigest, archive: "tool-codegen.oci.tar", archiveSha256: $codegenArchiveSha256},
+      evaluator: {tag: "specs-export/evaluator:go1.26.6", digest: $evaluatorDigest, archive: "evaluator.oci.tar", archiveSha256: $evaluatorArchiveSha256}
     }
   }' >"$OUTPUT_DIR/manifest.json"
 

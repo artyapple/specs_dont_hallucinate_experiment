@@ -19,36 +19,36 @@ Evidence (2026-08-17): task-aware registry implements all 44 manifest IDs; `null
 
 ### 2. Complete `run-result.json` Integration
 
-- [ ] Make the harness invoke the evaluator after submission or timeout.
-- [ ] Merge evaluator cases and common gates into the complete run result.
-- [ ] Record timing, usage, process, protocol, infrastructure, and artifact metadata.
-- [ ] Distinguish candidate failure, harness failure, and external infrastructure failure.
-- [ ] Validate every produced result against `schemas/run-result.schema.json`.
+- [x] Make the harness invoke the evaluator after submission or timeout.
+- [x] Merge evaluator cases and common gates into the complete run result.
+- [x] Record timing, usage, process, protocol, infrastructure, and artifact metadata.
+- [x] Distinguish candidate failure, harness failure, and external infrastructure failure.
+- [x] Validate every produced result against `schemas/run-result.schema.json`.
 
-Evidence: TODO
+Evidence (2026-08-17): `harness/runresult/` implements the assembler (`bin/runresult`, built by `make build-runresult`). For `submitted` and `timed-out` metadata statuses it invokes the evaluator on the preserved workspace and embeds the full 44-case roster with the nine derived common gates; draft derivation and extraction rules are documented in `harness/README.md`. Candidate build/migration/start failures keep the run status with failed gates; evaluator exit 2, unparseable output, and roster mismatches classify as `harness-failure`; evaluator PostgreSQL setup failure classifies as `infrastructure-failure` with `evaluation: null` and no fabricated outcomes; the assembler never pre-decides exclusion. Codegen health regenerates derived code in the pinned tool image with harness-owned commands. Transcript parsing produces `usage` and draft `commands.json`; `final.patch` classification, `candidateTests`, `residualFailures`, and `workspace-manifest.json` are recorded. Every produced result is validated against `schemas/run-result.schema.json` (draft 2020-12, format assertions) before writing. Passing checks: `go test -race ./...`, `go vet ./...`, `go mod verify` in `harness/runresult`, and `make test-runresult-integration` covering a greenfield Direct pass, a greenfield Codegen pass with healthy codegen metrics, a candidate migration failure, and both driver-classified failure statuses against canonical fixtures as synthetic workspaces (no agent run). Run-driver orchestration that creates workspaces and finalizes `metadata.json` remains in Task 7.
 
 ### 3. Stable Evaluator Binary Contract
 
-- [ ] Freeze required CLI flags and environment variables.
-- [ ] Freeze candidate input and artifact output paths.
-- [ ] Freeze task, stage, and treatment selection behavior.
-- [ ] Freeze exit codes, timeout handling, diagnostics, and log limits.
-- [ ] Freeze signal handling and cleanup behavior.
-- [ ] Freeze applicable and non-applicable case representation.
-- [ ] Document the final contract and cover it with tests.
+- [x] Freeze required CLI flags and environment variables.
+- [x] Freeze candidate input and artifact output paths.
+- [x] Freeze task, stage, and treatment selection behavior.
+- [x] Freeze exit codes, timeout handling, diagnostics, and log limits.
+- [x] Freeze signal handling and cleanup behavior.
+- [x] Freeze applicable and non-applicable case representation.
+- [x] Document the final contract and cover it with tests.
 
-Evidence: TODO
+Evidence (2026-08-17): `evaluator/contract.md` defines the stable draft contract. CLI: required `-candidate` (existing directory) and `-task` (four task values), optional `-output` (existing parent directory or `-`), positional arguments rejected. Environment: no evaluator-specific variables; candidate commands inherit the evaluator environment plus exactly `DATABASE_URL` (build/migrate/run) and `HTTP_ADDR` (run only). The evaluator is stage- and treatment-agnostic; the harness maps cells to tasks and owns Codegen health. Timeouts are frozen constants: 60 s PostgreSQL startup wait, 30 s readiness deadline, 5 s per HTTP request, 5 minutes per candidate build/migration command, and a 15 minute overall evaluation budget enforced by the binary; the harness assembly deadline is 16 minutes so a healthy evaluator always finishes first. Diagnostics are bounded: 16 KiB tails for command output and service logs with explicit truncation markers, 8 KiB response bodies in case evidence, 64 KiB buffered decode limit; result files are written atomically. Abort on SIGINT/SIGTERM or budget exhaustion kills candidate command process groups (Setpgid plus group SIGKILL and WaitDelay), stops the service process group, terminates PostgreSQL, and exits 2 without writing a result. Case representation frozen as the full 44-case roster in registry order with Boolean or null `passed` and string or empty `evidence`. Contract tests: `cmd/evaluator/main_test.go` covers seven CLI rejection cases (exit 2) and SIGTERM abort (exit 2, prompt exit, no result or temp file); `internal/evaluator/contract_test.go` covers roster order and null representation and bounded setup evidence against Docker. Passing checks: evaluator `go test -race ./...`, `go vet ./...`, `go mod verify`; full canonical matrix re-verified (`make evaluate-task-solutions`, all six references completeSuccess true); `make test-runresult-integration` still passes end to end. The experiment status remains `draft`; the contract freezes fully only at the global freeze.
 
 ### 4. Evaluator OCI Image
 
-- [ ] Add `images/evaluator.Dockerfile` only after Task 3 is complete.
-- [ ] Build the evaluator binary in a pinned environment.
-- [ ] Run as an unprivileged user with the minimum required mounts and access.
-- [ ] Keep provider credentials out of the evaluator environment.
-- [ ] Run baseline and task-specific evaluator checks from the image.
-- [ ] Produce a reproducible OCI archive and record its identities.
+- [x] Add `images/evaluator.Dockerfile` only after Task 3 is complete.
+- [x] Build the evaluator binary in a pinned environment.
+- [x] Run as an unprivileged user with the minimum required mounts and access.
+- [x] Keep provider credentials out of the evaluator environment.
+- [x] Run baseline and task-specific evaluator checks from the image.
+- [x] Produce a reproducible OCI archive and record its identities.
 
-Evidence: TODO
+Evidence (2026-08-17): `images/evaluator.Dockerfile` builds the evaluator from the pinned `golang:1.26.6-bookworm` base (`CGO_ENABLED=0`, `-trimpath`, `-buildvcs=false`) and preloads the union of fixture module dependencies (`base1`, `base2-direct`, `base2-codegen`, `nullable-patch-codegen`) so candidate builds are hermetic under `GOPROXY=off`, `GOSUMDB=off`, `GOTOOLCHAIN=local`. The image runs as uid 10001 with no provider credentials; the candidate tree mounts read-only at `/candidate`, and Docker socket access is granted only through a supplementary group (daemon socket group on Linux, gid 0 on Docker Desktop) — root is never used. Testcontainers for Go v0.44.0 detects the in-container environment and reaches PostgreSQL through the bridge gateway. Credential hygiene is enforced in code and tested: the evaluator strips `OPENROUTER_API_KEY` from every candidate command environment (`TestCandidateEnvironmentRedactsProviderKey` proves it through the real `runCommand` path), and the run-result assembler strips provider keys from the evaluator process environment (`TestWithoutProviderCredentials`). `make test-evaluator-image` passes: credential absence, uid 10001, offline module policy, and full evaluations from the image for baseline (`base2-direct`, `base2-codegen`), `nullable-patch`, `optimistic-locking`, and `cursor-pagination` canonical references, all `completeSuccess: true`. `images/export-oci.sh` now exports all four images; the development export in `.cache/oci-export/oci-export-20260817T144946Z-11647/manifest.json` records evaluator OCI image digest `sha256:f6dd3ad3c91760eba6c214fb4b5be3f6ed715e8fdcbfcb8514bb581573a6959b` and archive SHA-256 `1152fd4df55e32acd35d5047a8d71b7cbc9d8a79c718aeaad6b062cb7c19fe42`, both reproduced byte-for-byte by an independent second build (coordinator and tool digests also matched the previous session). The local development image ID is recorded in `config/versions.json` `observedLocalImages`; `frozen.evaluatorImage` stays `TODO_PIN_DIGEST` until the global freeze, and clean-machine import validation remains in Task 6.
 
 ### 5. Global Freeze Readiness
 

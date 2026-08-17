@@ -25,6 +25,23 @@ import (
 
 const postgresImage = "docker.io/library/postgres:18.6@sha256:06cad38a5d9f5d24b4d83d86def30795d5e4b757fedbf5281172b576dedcd941"
 
+// Frozen resource and diagnostics limits. See contract.md for the full binary
+// contract; these values are part of it.
+const (
+	// EvaluationBudget bounds one complete evaluator run. cmd/evaluator
+	// enforces it and aborts without writing a result when it is exceeded.
+	EvaluationBudget = 15 * time.Minute
+	// candidateCommandBudget bounds one candidate build or migration command.
+	candidateCommandBudget = 5 * time.Minute
+	// evidenceLogLimit bounds candidate command output and service logs
+	// embedded in the result; only the tail is preserved.
+	evidenceLogLimit = 16 * 1024
+	// responseBodyEvidenceLimit bounds response bodies embedded in case evidence.
+	responseBodyEvidenceLimit = 8 * 1024
+	// responseBodyDecodeLimit bounds buffered response bodies that are later decoded.
+	responseBodyDecodeLimit = 64 * 1024
+)
+
 const (
 	TaskBaseline   = "baseline-service"
 	TaskNullable   = "nullable-patch"
@@ -227,12 +244,68 @@ func (s *suite) reset(ctx context.Context) error {
 	return err
 }
 
+// providerCredentialVariables are stripped from every candidate command
+// environment so candidate-controlled code can never observe provider keys,
+// even if the evaluator process environment was populated carelessly.
+var providerCredentialVariables = []string{"OPENROUTER_API_KEY"}
+
+// candidateEnvironment returns the evaluator process environment without
+// provider credentials, plus the given extra variables.
+func candidateEnvironment(extra ...string) []string {
+	env := make([]string, 0, len(extra))
+	for _, entry := range os.Environ() {
+		redacted := false
+		for _, key := range providerCredentialVariables {
+			if strings.HasPrefix(entry, key+"=") {
+				redacted = true
+				break
+			}
+		}
+		if !redacted {
+			env = append(env, entry)
+		}
+	}
+	return append(env, extra...)
+}
+
 func runCommand(ctx context.Context, dir, databaseURL, name string, args ...string) (string, error) {
+	ctx, cancel := context.WithTimeout(ctx, candidateCommandBudget)
+	defer cancel()
 	command := exec.CommandContext(ctx, name, args...)
 	command.Dir = dir
-	command.Env = append(os.Environ(), "DATABASE_URL="+databaseURL)
+	command.Env = candidateEnvironment("DATABASE_URL=" + databaseURL)
+	command.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	// Abort kills the whole candidate command process group, not only the
+	// direct child, so candidate toolchains cannot leak grandchildren.
+	command.Cancel = func() error {
+		if err := syscall.Kill(-command.Process.Pid, syscall.SIGKILL); err != nil && !errors.Is(err, syscall.ESRCH) {
+			return err
+		}
+		return nil
+	}
+	command.WaitDelay = 5 * time.Second
 	output, err := command.CombinedOutput()
-	return strings.TrimSpace(string(output)), err
+	return tailEvidence(string(output), evidenceLogLimit), err
+}
+
+// tailEvidence keeps the last limit bytes of candidate-produced text so setup
+// and case evidence stay bounded regardless of candidate output volume.
+func tailEvidence(value string, limit int) string {
+	trimmed := strings.TrimSpace(value)
+	if len(trimmed) > limit {
+		return fmt.Sprintf("(truncated to last %d bytes)\n%s", limit, trimmed[len(trimmed)-limit:])
+	}
+	return trimmed
+}
+
+// readEvidence reads at most limit bytes of a response body for evidence
+// strings, marking truncation explicitly.
+func readEvidence(reader io.Reader, limit int64) string {
+	data, _ := io.ReadAll(io.LimitReader(reader, limit+1))
+	if int64(len(data)) > limit {
+		return strings.TrimSpace(string(data[:limit])) + " (truncated)"
+	}
+	return strings.TrimSpace(string(data))
 }
 
 func availableAddress() (string, error) {
@@ -258,7 +331,7 @@ func startService(dir, databaseURL, addr string) (*serviceProcess, error) {
 	}
 	command := exec.Command("make", "run")
 	command.Dir = dir
-	command.Env = append(os.Environ(), "DATABASE_URL="+databaseURL, "HTTP_ADDR="+addr)
+	command.Env = candidateEnvironment("DATABASE_URL="+databaseURL, "HTTP_ADDR="+addr)
 	command.Stdout = logFile
 	command.Stderr = logFile
 	command.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
@@ -318,10 +391,7 @@ func (p *serviceProcess) logs() string {
 	if err != nil {
 		return ""
 	}
-	if len(data) > 16*1024 {
-		data = data[len(data)-16*1024:]
-	}
-	return strings.TrimSpace(string(data))
+	return tailEvidence(string(data), evidenceLogLimit)
 }
 
 func (s *suite) createValid(ctx context.Context) error {
@@ -439,12 +509,12 @@ func (s *suite) deleteExisting(ctx context.Context) error {
 	if response.StatusCode != http.StatusNoContent {
 		return fmt.Errorf("status = %d, want 204", response.StatusCode)
 	}
-	body, err := io.ReadAll(response.Body)
+	body, err := io.ReadAll(io.LimitReader(response.Body, 2))
 	if err != nil {
 		return err
 	}
 	if len(body) != 0 {
-		return fmt.Errorf("204 response has a %d-byte body", len(body))
+		return fmt.Errorf("204 response has a non-empty body: %s", readEvidence(bytes.NewReader(body), responseBodyEvidenceLimit))
 	}
 	return nil
 }
@@ -564,8 +634,7 @@ func (s *suite) jsonRequestWithHeaders(ctx context.Context, method, path, body s
 
 func expectStatusAndType(response *http.Response, status int, mediaType string) error {
 	if response.StatusCode != status {
-		body, _ := io.ReadAll(response.Body)
-		return fmt.Errorf("status = %d, want %d; body=%s", response.StatusCode, status, strings.TrimSpace(string(body)))
+		return fmt.Errorf("status = %d, want %d; body=%s", response.StatusCode, status, readEvidence(response.Body, responseBodyEvidenceLimit))
 	}
 	actualType, _, err := mime.ParseMediaType(response.Header.Get("Content-Type"))
 	if err != nil || actualType != mediaType {

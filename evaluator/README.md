@@ -1,6 +1,6 @@
 # Hidden Evaluator
 
-Status: baseline and task-specific cases validated against both Direct and Codegen draft canonical references. Complete known-broken coverage, harness integration, independent review, and the evaluator image remain pending.
+Status: baseline and task-specific cases validated against both Direct and Codegen draft canonical references. Harness run-result integration is implemented, the binary contract is stabilized in `contract.md`, and the OCI image is defined in `../images/evaluator.Dockerfile`. Complete known-broken coverage, independent review, and clean-machine image validation remain pending.
 
 The evaluator is an external black-box Go binary. It does not import candidate code or depend on candidate package names and internal architecture.
 
@@ -33,24 +33,7 @@ The evaluator implements every task-specific ID in `case-manifest.json`:
 
 ## Runtime Contract
 
-The evaluator accepts a candidate repository path and required task selector. A candidate must expose these repository-owned commands and environment variables:
-
-- `make build` builds the candidate.
-- `make migrate` applies candidate migrations using required `DATABASE_URL`.
-- `make run` starts the service using required `DATABASE_URL` and `HTTP_ADDR`.
-- `GET /healthz` returns `200` only when the service is ready.
-
-For each invocation the evaluator:
-
-1. Starts fresh PostgreSQL from `docker.io/library/postgres:18.6@sha256:06cad38a5d9f5d24b4d83d86def30795d5e4b757fedbf5281172b576dedcd941` using Testcontainers for Go `v0.44.0`.
-2. Waits for the PostgreSQL readiness log with no fixed sleep.
-3. Uses the container's dynamically mapped PostgreSQL port.
-4. Runs the candidate build and migration commands.
-5. Allocates a dynamic loopback HTTP port, starts `make run`, and polls `/healthz` with a 30-second deadline.
-6. Runs the same HTTP and direct database checks for every candidate.
-7. sends `SIGTERM` to the candidate process group, escalates after 10 seconds if necessary, and terminates PostgreSQL through Testcontainers cleanup.
-
-The standalone result is JSON with setup gates and per-case `id`, `applicable`, `passed`, and `evidence` fields. These case records use the IDs and shape required by `schemas/run-result.schema.json`; the harness can embed them into its complete run result later.
+The stable binary contract — CLI flags, environment, candidate input and output paths, task selection, exit codes, timeouts, diagnostics bounds, signal handling, cleanup, and case representation — is defined in `contract.md` and covered by contract tests. In brief: the evaluator accepts a candidate repository path and task selector, requires candidate-owned `make build`, `make migrate`, and `make run` plus a `GET /healthz` readiness endpoint, and emits a single result JSON.
 
 ## Commands
 
@@ -59,6 +42,8 @@ From the experiment root:
 ```text
 make build-evaluator
 make test-evaluator
+make build-evaluator-image
+make test-evaluator-image
 make evaluate-base2-direct
 make evaluate-base2-codegen
 make evaluate-bases
@@ -72,7 +57,7 @@ go run ./cmd/evaluator -task baseline-service -candidate ../fixtures/base2-direc
 
 The root Make targets create `results/evaluator-baselines/`; the repository ignores that artifact directory.
 
-The process exits `0` only when setup and every applicable case pass, `1` for a candidate/setup failure recorded in JSON, and `2` for invalid CLI usage or failure to write the result.
+The process exits `0` only when setup and every applicable case pass, `1` for a candidate/setup failure recorded in JSON, and `2` for invalid CLI usage, an unwritable result, or an aborted run (signal or evaluation budget exhausted; no partial result is written).
 
 ## Self-Tests
 
@@ -96,6 +81,5 @@ Run `make evaluate-task-solutions` to evaluate all six draft canonical reference
 
 - Complete known-broken coverage for every important task behavior class.
 - Complete independent human review of all six draft canonical references.
-- Integrate standalone output into complete harness-owned `run-result.json` artifacts.
-- Stabilize the binary/runtime contract, then add `images/evaluator.Dockerfile` as a separate step.
+- Validate the evaluator OCI archive on a separate clean machine during the global freeze.
 - Freeze evaluator revision only during the global freeze.

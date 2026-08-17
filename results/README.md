@@ -14,6 +14,11 @@ workspace-manifest.json
 run-result.json
 ```
 
+Artifact ownership:
+
+- The run driver owns `metadata.json` (draft contract in `harness/README.md`), `transcript.jsonl`, `final.patch`, and the preserved `workspace/`.
+- The run-result assembler (`harness/runresult/`) owns `commands.json` with per-event captures under `commands/`, `evaluation.json`, `workspace-manifest.json`, and `run-result.json`, and validates the result against the run-result schema.
+
 Before publication:
 
 - validate `run-result.json` against the frozen run-result schema;

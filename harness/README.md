@@ -102,10 +102,51 @@ The schedule and seed are frozen before measured runs. Pilot and measured schedu
 - Frozen infrastructure-failure rules determine replacement eligibility.
 - Replaced artifacts remain preserved and published.
 
+## Run Result Assembly
+
+`bin/runresult` (source `runresult/`, built by `make build-runresult`) converts a preserved run directory into a validated `run-result.json`. It is the only component that merges hidden evaluator output into the complete run result. Run drivers invoke it after final submission or timeout; it never feeds information back to the agent.
+
+### Driver-Owned Inputs
+
+Before assembly the run directory must contain:
+
+- `metadata.json` — run identity and lifecycle state (draft contract below);
+- `transcript.jsonl` — OpenCode `--format json` output, possibly empty;
+- `final.patch` — candidate diff, possibly empty;
+- `workspace/` — preserved candidate workspace (required for `submitted` and `timed-out`).
+
+Draft `metadata.json` fields: `runId`, `cellId` (must exist in `config/experiment.json`), `repeatIndex` 1–5, `phase` (`pilot` or `measured`), `status` (`submitted`, `timed-out`, `infrastructure-failure`, or `harness-failure`), `startedAt` and `finishedAt` (RFC 3339; for timed-out runs `finishedAt` is the enforced deadline so wall clock never exceeds 2,700,000 ms), optional `workspace` directory name (default `workspace`), `protocolViolations` (pass-through from driver evidence), `infrastructure` with `category` and `evidence` (required for the two failure statuses), and optional `replacesRunId` replacement linkage. Infrastructure categories follow `config/infrastructure-failure-policy.md`: `model-provider-outage`, `harness-process-crash`, `host-container-runtime-failure`, `evaluator-infrastructure-failure`, `artifact-storage-failure`.
+
+### Assembly Behavior
+
+1. Resolves stage, task, mode, and treatment from the cell in `config/experiment.json`.
+2. For `submitted` and `timed-out`, invokes `bin/evaluator -task <task> -candidate <workspace>` and preserves its raw output as `evaluation.json`. For the two failure statuses, skips evaluation and writes `evaluation.json` containing `null`; no behavior outcomes are fabricated.
+3. Failure classification:
+   - evaluator exit 2, missing or unparseable result JSON, spawn failure, assembly deadline, or case-roster mismatch → `harness-failure` with category `harness-process-crash`;
+   - evaluator `setup.postgres=false` → `infrastructure-failure` with category `evaluator-infrastructure-failure`;
+   - build, migration, or service-start setup failures and any case failures → candidate failure: status stays `submitted` or `timed-out` and the evaluation embeds the failed gates and cases;
+   - Codegen health container failure → `infrastructure-failure` with category `host-container-runtime-failure`.
+   The assembler never sets `exclusionEligible`, `excluded`, or `replacementRunId`; exclusion remains a later reviewed decision under the infrastructure-failure policy.
+4. Draft common-gate derivation: `build`, `migrations`, and `service-start` come from evaluator setup gates; `baseline-behavior` covers the seven `baseline.*` cases; `task-behavior` covers all applicable task-specific cases and mirrors `baseline-behavior` for `baseline-service`; `regressions` covers every common (`task: all`) case, that is baseline plus contract; `api-conformance` is `contract.openapi-conformance` and `contract.problem-details`; `database-consistency` is `contract.database-consistency`; `formal-inputs` requires propagation-only candidates to hash-match every file in `tasks/propagation/<task>/target-manifest.json` byte-for-byte, and otherwise checks presence and basic validity of `api/openapi.yaml`, `db/queries/tasks.sql`, and at least one `NNNNNN_name.sql` migration.
+5. `completeSuccess` is every common gate true and every applicable required behavior case passed. `residualFailures` lists the sorted IDs of failed applicable cases. `candidateTests` counts workspace `*_test.go` files as a quality finding only.
+6. Codegen health (Codegen treatment only) regenerates derived code from the candidate's own formal inputs inside the pinned codegen tool image using harness-owned canonical commands; candidate scripts are never invoked. `canonical` requires the first regeneration to byte-match the committed generated files, `idempotent` requires a second regeneration to be byte-identical, and `manualEditDetected` is `generationSucceeded` and not `canonical`, which conflates manual edits with stale regeneration until human review.
+7. Draft transcript extraction: `usage.turns` counts `step_finish` events, `usage.toolCalls` counts `tool_use` events, and token sums use the reported `tokens.input` and `tokens.output` only; cache and reasoning tokens remain available in the transcript artifact. `commands.json` holds one event per tool call with a draft category classification (`generate`, `migration`, `build`, `test`, `service`, `read`, `edit`, or `other`; `network-attempt` is reserved for network-layer evidence). `process.repairIterations` counts failed build or test command events, `filesTouched` counts distinct edit, write, and apply_patch paths, diff lines classify `api/` and `db/` as contract, the frozen generated paths as generated (Codegen only), and the rest as handwritten, and `compilerEvents` codes Go `file:line:col` diagnostics from failed build or test output with category `generated-type` or `handwritten`; `followedByRelevantRepair` stays null until analysis coding rules freeze.
+8. Writes `commands.json` with per-event output captures under `commands/`, `workspace-manifest.json` with SHA-256 and size per workspace file, and `run-result.json`. The result is validated against `schemas/run-result.schema.json` (draft 2020-12 with format assertions) before it is written.
+
+### Exit Codes
+
+- `0`: a schema-valid `run-result.json` was produced, including candidate-failure results;
+- `2`: no honest result could be assembled (driver contract violation, unreadable inputs, or schema rejection). This is always a harness defect and must stop the pipeline loudly.
+
+### Tests
+
+- `make test-runresult` — unit tests for gate derivation, failure classification, transcript and diff parsing, formal-input checks, and schema acceptance and rejection for all four statuses;
+- `make test-runresult-integration` — end-to-end assembly against canonical fixtures as synthetic preserved workspaces: greenfield Direct pass, greenfield Codegen pass with healthy codegen metrics, a candidate migration failure, and both driver-classified failure paths. Artifacts land in ignored `results/runresult-tests/`. No agent run, pilot, or measured run is exercised.
+
 ## TODO
 
 - Install and checksum the selected OpenCode Linux CLI in the run image, then pin the image digest.
 - Freeze orchestration that gives the coordinator provider egress while leaving the tool container on its internal-only network.
 - Publish or reproducibly export the custom images and replace local image IDs with distributable digests.
-- Implement deterministic command-event parsing and token extraction.
+- Implement the run driver that creates workspaces, runs the agent, finalizes `metadata.json`, and invokes run-result assembly (roadmap Task 7).
 - Implement transcript secret scrubbing.

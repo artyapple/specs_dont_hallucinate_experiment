@@ -1,8 +1,27 @@
-.PHONY: build-evaluator evaluate-bases evaluate-base2-codegen evaluate-base2-direct evaluate-task-solutions test-base1-skeleton test-base2-codegen test-base2-direct test-evaluator validate-formal validate-task-targets verify-task-solutions
+.PHONY: build-evaluator build-evaluator-image build-runresult evaluate-bases evaluate-base2-codegen evaluate-base2-direct evaluate-task-solutions export-oci test-base1-skeleton test-base2-codegen test-base2-direct test-evaluator test-evaluator-image test-runresult test-runresult-integration validate-formal validate-task-targets verify-task-solutions
 
 build-evaluator:
 	mkdir -p bin
 	cd evaluator && go build -o ../bin/evaluator ./cmd/evaluator
+
+build-evaluator-image:
+	docker build --file images/evaluator.Dockerfile --tag specs-experiment-evaluator:go1.26.6 .
+
+test-evaluator-image:
+	./images/test-evaluator-image.sh
+
+export-oci:
+	./images/export-oci.sh
+
+build-runresult:
+	mkdir -p bin
+	cd harness/runresult && go build -o ../../bin/runresult .
+
+test-runresult:
+	cd harness/runresult && go test ./...
+
+test-runresult-integration: build-evaluator build-runresult
+	./harness/test-runresult-integration.sh
 
 test-evaluator:
 	cd evaluator && go test ./...

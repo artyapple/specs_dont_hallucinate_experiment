@@ -1,7 +1,7 @@
 {
   "status": "unfrozen",
   "policy": "latest-stable-at-freeze",
-  "checkedAt": "2026-08-16",
+  "checkedAt": "2026-08-17",
   "observedLocalVersions": {
     "go": "1.26.5",
     "dockerEngine": "29.7.2",
@@ -11,7 +11,8 @@
   "observedLocalImages": {
     "coordinator": "sha256:3654ef6f893bbcbc3a1476e67c3d92be55a3712214b3237c0274162e09dafe45",
     "toolDirect": "sha256:8e2d70217dddd566d18c445f1c19affc40198708894ad9822984fc7ff5b1859d",
-    "toolCodegen": "sha256:8228c5e8d6c093709914833d53c5bfaf59e6f5d5ee05f5cbd3630e24be91f3b1"
+    "toolCodegen": "sha256:8228c5e8d6c093709914833d53c5bfaf59e6f5d5ee05f5cbd3630e24be91f3b1",
+    "evaluator": "sha256:6cd405fa4a9351bd70317aab13730d5adf810d93ff18943d59603f0d07327e60"
   },
   "baseImages": {
     "go": "docker.io/library/golang:1.26.6-bookworm@sha256:116d58cbd88c1297624acc6e967a060012422bacf9930927e23fb719189c6f36",

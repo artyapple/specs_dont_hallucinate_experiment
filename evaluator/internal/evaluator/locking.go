@@ -311,7 +311,7 @@ func (s *suite) expectLockingStored(ctx context.Context, id, title string, versi
 
 func readAndClose(response *http.Response) ([]byte, error) {
 	defer response.Body.Close()
-	return io.ReadAll(response.Body)
+	return io.ReadAll(io.LimitReader(response.Body, responseBodyDecodeLimit))
 }
 
 func ioNopCloser(body []byte) io.ReadCloser {
