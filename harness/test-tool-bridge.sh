@@ -17,6 +17,7 @@ readonly CONFIG="$(jq -c '
   | .agent.experiment.permission.bridge_test_bash = "allow"
   | .agent.experiment.permission.bridge_test_apply_patch = "allow"
 ' "$HARNESS_DIR/opencode-run.json")"
+chmod a+rwx "$WORKSPACE"
 
 cleanup() {
   docker rm -f "$TOOL" "$COORDINATOR" >/dev/null 2>&1 || true
