@@ -1,4 +1,4 @@
-.PHONY: build-evaluator build-evaluator-image build-freezecheck build-runresult evaluate-bases evaluate-base2-codegen evaluate-base2-direct evaluate-task-solutions export-oci generate-schedule prepare-oci-bundle test-base1-skeleton test-base2-codegen test-base2-direct test-evaluator test-evaluator-image test-freezecheck test-nullable-compatibility test-runresult test-runresult-integration validate-config validate-formal validate-oci-bundle validate-results validate-run validate-schedule validate-task-targets verify-task-solutions
+.PHONY: build-analysis-input build-evaluator build-evaluator-image build-freezecheck build-rundriver build-runresult evaluate-bases evaluate-base2-codegen evaluate-base2-direct evaluate-task-solutions export-oci generate-schedule prepare-oci-bundle test-analysis-input test-base1-skeleton test-base2-codegen test-base2-direct test-evaluator test-evaluator-image test-freezecheck test-nullable-compatibility test-rundriver test-runresult test-runresult-integration test-task7-dry-run validate-analysis-input validate-config validate-formal validate-oci-bundle validate-results validate-run validate-schedule validate-task-targets verify-task-solutions
 
 build-evaluator:
 	mkdir -p bin
@@ -24,6 +24,14 @@ validate-oci-bundle:
 build-runresult:
 	mkdir -p bin
 	cd harness/runresult && go build -o ../../bin/runresult .
+
+build-rundriver:
+	mkdir -p bin
+	cd harness/rundriver && go build -o ../../bin/rundriver .
+
+build-analysis-input:
+	mkdir -p bin
+	cd analysis/input && go build -o ../../bin/analysis-input .
 
 build-freezecheck:
 	mkdir -p bin
@@ -59,6 +67,19 @@ test-runresult:
 
 test-runresult-integration: build-evaluator build-runresult
 	./harness/test-runresult-integration.sh
+
+test-rundriver:
+	cd harness/rundriver && go test ./...
+
+test-analysis-input:
+	cd analysis/input && go test ./...
+
+test-task7-dry-run: build-evaluator build-runresult build-rundriver build-freezecheck build-analysis-input
+	./harness/test-task7-dry-run.sh
+
+validate-analysis-input: build-analysis-input
+	test -n "$(RESULTS_DIR)" && test -n "$(OUTPUT)"
+	./bin/analysis-input -root . -results-dir "$(RESULTS_DIR)" -output "$(OUTPUT)"
 
 test-evaluator:
 	cd evaluator && go test ./...

@@ -148,9 +148,17 @@ Draft `metadata.json` fields: `runId`, `cellId` (must exist in `config/experimen
 - `make test-runresult` — unit tests for gate derivation, failure classification, transcript and diff parsing, formal-input checks, and schema acceptance and rejection for all four statuses;
 - `make test-runresult-integration` — end-to-end assembly against canonical fixtures as synthetic preserved workspaces: greenfield Direct pass, greenfield Codegen pass with healthy codegen metrics, a candidate migration failure, and both driver-classified failure paths. Artifacts land in ignored `results/runresult-tests/`. No agent run, pilot, or measured run is exercised.
 
+## Synthetic Dry-Run Driver
+
+`bin/rundriver` (source `rundriver/`) exercises the production finalization boundary without starting OpenCode or contacting a model provider. It creates a new run directory, copies a canonical workspace with filesystem semantics that do not honor Git ignore rules, optionally applies an explicit synthetic overlay, copies an OpenCode-format transcript and final patch, writes `metadata.json`, strips `OPENROUTER_API_KEY` from the assembler environment, and invokes `bin/runresult` exactly once.
+
+The driver refuses to overwrite a run directory, rejects symlinks, special files, and hidden directories that are outside current workspace-manifest coverage, and preserves executable file modes. It always creates a workspace, including for driver-classified infrastructure and harness failures. A timed-out synthetic run must use exactly the configured 45-minute interval. Candidate failure is not a driver status: it remains `submitted` or `timed-out` and is determined only by evaluator output.
+
+`make test-task7-dry-run` creates four ignored pilot-phase synthetic artifacts under `results/task7-dry-run/`: submitted success, timed-out evaluation, candidate migration failure, and pre-agent infrastructure failure. The first three paths use the real evaluator; the infrastructure path supplies a nonexistent evaluator path to prove it is not invoked. Every run and the full set pass `freezecheck`, then the set is consumed by the deterministic analysis-input validator. This target performs no agent run or provider request.
+
 ## Remaining Work
 
 - Freeze orchestration that gives the coordinator provider egress while leaving the tool container on its internal-only network.
 - Publish or reproducibly export the custom images and replace local image IDs with distributable digests.
-- Implement the run driver that creates workspaces, runs the agent, finalizes `metadata.json`, and invokes run-result assembly (roadmap Task 7).
+- Extend the synthetic finalization boundary with real OpenCode/container execution before pilots; Task 7 intentionally does not implement measured-run orchestration.
 - Implement transcript secret scrubbing.

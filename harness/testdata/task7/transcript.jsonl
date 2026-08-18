@@ -1,0 +1,4 @@
+{"type":"tool_use","timestamp":1787011201000,"part":{"type":"tool","tool":"read","state":{"status":"completed","input":{"filePath":"/workspace/README.md"},"output":"synthetic read","time":{"start":1787011200900,"end":1787011201000}}}}
+{"type":"tool_use","timestamp":1787011202000,"part":{"type":"tool","tool":"bash","state":{"status":"completed","input":{"command":"go build ./...","workdir":"/workspace"},"output":"synthetic build passed","metadata":{"exit":0},"time":{"start":1787011201100,"end":1787011202000}}}}
+{"type":"tool_use","timestamp":1787011203000,"part":{"type":"tool","tool":"edit","state":{"status":"completed","input":{"filePath":"/workspace/db/migrations/000001_create_tasks.sql"},"output":"synthetic edit","time":{"start":1787011202100,"end":1787011203000}}}}
+{"type":"step_finish","timestamp":1787011204000,"part":{"type":"step-finish","tokens":{"input":120,"output":30}}}

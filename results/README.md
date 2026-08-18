@@ -12,6 +12,7 @@ final.patch
 evaluation.json
 workspace-manifest.json
 run-result.json
+workspace/
 ```
 
 Artifact ownership:
@@ -26,3 +27,5 @@ Before publication:
 - preserve protocol violations and infrastructure failures;
 - publish exclusion and replacement relationships;
 - verify that aggregate charts can be regenerated from the cleaned artifacts.
+
+Task 7 synthetic artifacts use `phase: pilot` and live under ignored `results/task7-dry-run/` only as development evidence. They are never measured observations. `analysis/input/` can validate and index them without aggregating them.

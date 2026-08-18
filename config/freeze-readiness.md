@@ -42,6 +42,6 @@ The Task 6 server is rented only after a clean source revision produces the fina
 | All 14 unmeasured pilots complete | Pilot operator | `make validate-results RESULTS_DIR=pilots SCHEDULE=<pilot-schedule>` | Run driver Task 7 and pilots Task 10; no pilots in Task 5 |
 | Pilot artifacts stay outside measured results | Pilot operator | `make validate-results RESULTS_DIR=pilots SCHEDULE=<pilot-schedule>` and independent directory review | Task 10 |
 | Blocked randomized schedule generated and frozen | Freeze operator | `make validate-schedule PHASE=measured SCHEDULE=config/schedule.json` | Seed and final schedule remain Task 12 |
-| Every run automatically preserves all required artifacts | Harness owner | `make test-runresult-integration`; `make validate-results RESULTS_DIR=<dry-run-results> SCHEDULE=<schedule>` | Full driver proof is Task 7 |
+| Every run automatically preserves all required artifacts | Harness owner | `make test-task7-dry-run`; `make validate-results RESULTS_DIR=<dry-run-results> SCHEDULE=<schedule>` | Synthetic finalization proof passes; real agent execution remains a pre-pilot dependency |
 
 Commands whose dependencies are not complete are assigned now but are not claimed as passing. Task 5 does not supersede Tasks 6-12.

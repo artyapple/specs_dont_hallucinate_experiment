@@ -83,12 +83,12 @@ Evidence: TODO
 
 ### 7. End-To-End Dry Run
 
-- [ ] Exercise candidate workspace creation through final result production without an agent pilot.
-- [ ] Validate submitted, timed-out, candidate-failure, and infrastructure-failure paths.
-- [ ] Preserve workspace, transcript, commands, patch, evaluation, and manifest artifacts.
-- [ ] Feed the produced result into the analysis input pipeline.
+- [x] Exercise candidate workspace creation through final result production without an agent pilot.
+- [x] Validate submitted, timed-out, candidate-failure, and infrastructure-failure paths.
+- [x] Preserve workspace, transcript, commands, patch, evaluation, and manifest artifacts.
+- [x] Feed the produced result into the analysis input pipeline.
 
-Evidence: TODO
+Evidence (2026-08-18): `harness/rundriver/` implements a synthetic-only finalization boundary that creates a new isolated workspace through filesystem copying of a canonical fixture, preserves ignored/generated files and executable modes, rejects symlinks/special files/unmanifested hidden directories, optionally applies an explicit synthetic overlay, writes driver-owned `metadata.json`, `transcript.jsonl`, and `final.patch`, strips `OPENROUTER_API_KEY`, and invokes the existing `bin/runresult` exactly once. It never reads `.env`, starts OpenCode, or contacts a model provider. Candidate failure remains an evaluated `submitted`/`timed-out` result rather than a driver status; all failure statuses preserve the starting workspace. `make test-task7-dry-run` passes with four pilot-phase synthetic artifacts in ignored `results/task7-dry-run/`: real-evaluator submitted success, real-evaluator timed-out success with exactly 2,700,000 ms wall time, real-evaluator invalid-migration candidate failure, and pre-agent infrastructure failure whose deliberately nonexistent evaluator path proves evaluation is skipped and represented as null. Every run preserves workspace, transcript, extracted commands and captures, patch, raw evaluation, workspace manifest, and run result; all four pass `freezecheck run`, the set passes `freezecheck results`, and `analysis/input/` schema-validates the set and emits a deterministic run-ID-sorted index that distinguishes candidate and infrastructure failures. `go test -race ./...`, `go vet ./...`, and `go mod verify` pass in both new Go modules; `make validate-config` and `git diff --check` pass. No agent run, pilot, measured run, image build input, or network-enforcement status changed.
 
 ### 8. Canonical Task Solutions
 

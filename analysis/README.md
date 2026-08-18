@@ -23,6 +23,14 @@ Analysis is descriptive and reproducible from machine-readable run artifacts.
 - Select representative examples only after aggregate analysis.
 - Keep pilot artifacts out of measured aggregation.
 
+## Input Validation
+
+`analysis/input/` is the deterministic pre-aggregation boundary. It validates every immediate child `run-result.json` against `schemas/run-result.schema.json`, rejects incomplete directories and duplicate run IDs, preserves null evaluations for infrastructure and harness failures, distinguishes evaluated candidate failures, and emits a run-ID-sorted JSON index. It does not aggregate cells, produce charts, or count pilot inputs as measured observations.
+
+```text
+make validate-analysis-input RESULTS_DIR=<path> OUTPUT=<path>
+```
+
 ## Compiler Event Coding
 
 Freeze coding rules for:
@@ -40,7 +48,7 @@ This analysis remains exploratory.
 ## TODO
 
 - Choose the implementation language and chart library.
-- Implement schema validation and deterministic aggregation.
+- Implement deterministic aggregation after the schema-valid input boundary.
 - Define diff classification rules and generated-file manifests.
 - Define repair-iteration extraction from command events.
 - Produce placeholder charts from synthetic data before measured runs.

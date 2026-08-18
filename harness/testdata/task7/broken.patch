@@ -1,0 +1,7 @@
+diff --git a/db/migrations/000001_create_tasks.sql b/db/migrations/000001_create_tasks.sql
+--- a/db/migrations/000001_create_tasks.sql
++++ b/db/migrations/000001_create_tasks.sql
+@@ -8 +8,3 @@ CREATE TABLE tasks (
+ CREATE INDEX tasks_created_at_id_idx ON tasks (created_at ASC, id ASC);
++
++THIS IS NOT VALID SQL;
