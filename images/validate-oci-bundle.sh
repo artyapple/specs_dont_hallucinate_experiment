@@ -139,14 +139,13 @@ jq -n \
 : >"$EVIDENCE/imported-images.tsv"
 verify_and_import() {
   local key="$1" tag="$2" digest="$3" archive_name="$4" archive_sha256="$5"
-  local archive observed_archive_sha256 observed_digest expected_config_digest imported_id status
+  local archive observed_archive_sha256 observed_digest imported_id status
   case "$archive_name" in
     */*|..|.) printf 'invalid archive name in manifest: %s\n' "$archive_name" >&2; return 1 ;;
   esac
   archive="$BUNDLE/$archive_name"
   observed_archive_sha256="missing"
   observed_digest="unread"
-  expected_config_digest="unread"
   imported_id="not-imported"
   status="failed"
   if [ -f "$archive" ]; then
@@ -154,26 +153,25 @@ verify_and_import() {
   fi
   if [ "$observed_archive_sha256" = "$archive_sha256" ]; then
     observed_digest="$(skopeo inspect --format '{{.Digest}}' "oci-archive:$archive" 2>"$EVIDENCE/logs/digest-$key.log" || true)"
-    expected_config_digest="$(skopeo inspect --raw "oci-archive:$archive" 2>>"$EVIDENCE/logs/digest-$key.log" | jq -er '.config.digest' 2>>"$EVIDENCE/logs/digest-$key.log" || true)"
   fi
-  if [ "$observed_archive_sha256" != "$archive_sha256" ] || [ "$observed_digest" != "$digest" ] || [ -z "$expected_config_digest" ]; then
-    printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$key" "$tag" "$archive_sha256" "$observed_archive_sha256" "$digest" "$observed_digest" "$expected_config_digest" "$imported_id" "$status" >>"$EVIDENCE/imported-images.tsv"
+  if [ "$observed_archive_sha256" != "$archive_sha256" ] || [ "$observed_digest" != "$digest" ]; then
+    printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$key" "$tag" "$archive_sha256" "$observed_archive_sha256" "$digest" "$observed_digest" "$imported_id" "$status" >>"$EVIDENCE/imported-images.tsv"
     printf 'archive identity verification failed for %s\n' "$key" >&2
     return 1
   fi
   if docker image inspect "$tag" >/dev/null 2>&1; then
     printf 'target custom image existed before import: %s\n' "$tag" >&2
-    printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$key" "$tag" "$archive_sha256" "$observed_archive_sha256" "$digest" "$observed_digest" "$expected_config_digest" "$imported_id" "$status" >>"$EVIDENCE/imported-images.tsv"
+    printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$key" "$tag" "$archive_sha256" "$observed_archive_sha256" "$digest" "$observed_digest" "$imported_id" "$status" >>"$EVIDENCE/imported-images.tsv"
     return 1
   fi
-  if run_check "import-$key" skopeo copy "oci-archive:$archive" "docker-daemon:$tag"; then
+  if run_check "import-$key" docker load --input "$archive"; then
     imported_id="$(docker image inspect "$tag" --format '{{.Id}}')"
-    if [ "$imported_id" = "$expected_config_digest" ]; then
+    if [ "$imported_id" = "$digest" ]; then
       status="passed"
     fi
   fi
-  printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$key" "$tag" "$archive_sha256" "$observed_archive_sha256" "$digest" "$observed_digest" "$expected_config_digest" "$imported_id" "$status" >>"$EVIDENCE/imported-images.tsv"
-  test "$status" = passed || { printf 'imported config identity mismatch for %s\n' "$key" >&2; return 1; }
+  printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$key" "$tag" "$archive_sha256" "$observed_archive_sha256" "$digest" "$observed_digest" "$imported_id" "$status" >>"$EVIDENCE/imported-images.tsv"
+  test "$status" = passed || { printf 'imported image identity mismatch for %s\n' "$key" >&2; return 1; }
 }
 
 while IFS=$'\t' read -r key tag digest archive_name archive_sha256; do
