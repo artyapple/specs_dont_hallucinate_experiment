@@ -1,4 +1,4 @@
-.PHONY: build-evaluator build-evaluator-image build-runresult evaluate-bases evaluate-base2-codegen evaluate-base2-direct evaluate-task-solutions export-oci test-base1-skeleton test-base2-codegen test-base2-direct test-evaluator test-evaluator-image test-runresult test-runresult-integration validate-formal validate-task-targets verify-task-solutions
+.PHONY: build-evaluator build-evaluator-image build-freezecheck build-runresult evaluate-bases evaluate-base2-codegen evaluate-base2-direct evaluate-task-solutions export-oci generate-schedule prepare-oci-bundle test-base1-skeleton test-base2-codegen test-base2-direct test-evaluator test-evaluator-image test-freezecheck test-nullable-compatibility test-runresult test-runresult-integration validate-config validate-formal validate-oci-bundle validate-results validate-run validate-schedule validate-task-targets verify-task-solutions
 
 build-evaluator:
 	mkdir -p bin
@@ -13,9 +13,46 @@ test-evaluator-image:
 export-oci:
 	./images/export-oci.sh
 
+prepare-oci-bundle:
+	test -n "$(OUTPUT_DIR)"
+	./images/prepare-oci-bundle.sh "$(OUTPUT_DIR)"
+
+validate-oci-bundle:
+	test -n "$(BUNDLE_DIR)" && test -n "$(EVIDENCE_DIR)"
+	./images/validate-oci-bundle.sh "$(BUNDLE_DIR)" "$(EVIDENCE_DIR)"
+
 build-runresult:
 	mkdir -p bin
 	cd harness/runresult && go build -o ../../bin/runresult .
+
+build-freezecheck:
+	mkdir -p bin
+	cd harness/freezecheck && go build -o ../../bin/freezecheck .
+
+test-freezecheck:
+	cd harness/freezecheck && go test ./...
+
+validate-config:
+	cd harness/freezecheck && go run . config --root ../..
+
+generate-schedule:
+	test -n "$(PHASE)" && test -n "$(SEED)" && test -n "$(REVISION)" && test -n "$(GENERATED_AT)" && test -n "$(OUTPUT)"
+	cd harness/freezecheck && go run . schedule generate --config ../../config/experiment.json --phase "$(PHASE)" --seed "$(SEED)" --config-revision "$(REVISION)" --generated-at "$(GENERATED_AT)" --output "../../$(OUTPUT)"
+
+validate-schedule:
+	test -n "$(PHASE)" && test -n "$(SCHEDULE)"
+	cd harness/freezecheck && go run . schedule validate --config ../../config/experiment.json --schedule "../../$(SCHEDULE)" --phase "$(PHASE)"
+
+validate-run:
+	test -n "$(RUN_DIR)"
+	cd harness/freezecheck && go run . run --root ../.. --run-dir "../../$(RUN_DIR)" $(if $(SCHEDULE),--schedule "../../$(SCHEDULE)")
+
+validate-results:
+	test -n "$(RESULTS_DIR)"
+	cd harness/freezecheck && go run . results --root ../.. --results-dir "../../$(RESULTS_DIR)" $(if $(SCHEDULE),--schedule "../../$(SCHEDULE)")
+
+test-nullable-compatibility:
+	cd compatibility/nullable && go test ./...
 
 test-runresult:
 	cd harness/runresult && go test ./...

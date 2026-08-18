@@ -1,6 +1,6 @@
 # Base 2 Allowed Differences
 
-Status: `TODO_FREEZE_BEFORE_PILOTS`
+Status: pilot-fixed draft. The allowed-difference policy is fixed before pilots but becomes globally frozen only in Roadmap Task 12.
 
 The Base 2 variants may differ only in these categories:
 

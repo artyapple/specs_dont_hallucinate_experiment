@@ -90,9 +90,14 @@ OpenCode `v1.18.18` source establishes the override behavior:
 
 ## Scheduling
 
-Generate a blocked randomized schedule that balances treatments within every task and mode over execution time.
+The scheduler forms seven strata: Greenfield and each task/mode combination. A measured schedule contains five 14-run blocks. Each block shuffles the seven strata and independently randomizes treatment order, then places the Direct and Codegen runs for each stratum adjacently. This guarantees local treatment balance throughout execution as well as five observations per cell. Pilot schedules use one separate 14-run block.
 
-The schedule and seed are frozen before measured runs. Pilot and measured schedules are separate.
+Schedule manifests identify this algorithm as `sha256-fisher-yates-v1`. `harness/freezecheck` uses the architecture-independent SHA-256 counter stream and rejection-sampled Fisher-Yates algorithm specified in `freezecheck/schedule.go`. Generation requires an explicit seed, config revision, timestamp, and output path; it never chooses them implicitly and never overwrites a manifest. The schedule and seed are frozen before measured runs. Pilot and measured schedules are separate.
+
+```text
+make generate-schedule PHASE=measured SEED=<seed> REVISION=<commit> GENERATED_AT=<rfc3339> OUTPUT=<path>
+make validate-schedule PHASE=measured SCHEDULE=<path>
+```
 
 ## Completion and Failures
 
@@ -143,9 +148,8 @@ Draft `metadata.json` fields: `runId`, `cellId` (must exist in `config/experimen
 - `make test-runresult` — unit tests for gate derivation, failure classification, transcript and diff parsing, formal-input checks, and schema acceptance and rejection for all four statuses;
 - `make test-runresult-integration` — end-to-end assembly against canonical fixtures as synthetic preserved workspaces: greenfield Direct pass, greenfield Codegen pass with healthy codegen metrics, a candidate migration failure, and both driver-classified failure paths. Artifacts land in ignored `results/runresult-tests/`. No agent run, pilot, or measured run is exercised.
 
-## TODO
+## Remaining Work
 
-- Install and checksum the selected OpenCode Linux CLI in the run image, then pin the image digest.
 - Freeze orchestration that gives the coordinator provider egress while leaving the tool container on its internal-only network.
 - Publish or reproducibly export the custom images and replace local image IDs with distributable digests.
 - Implement the run driver that creates workspaces, runs the agent, finalizes `metadata.json`, and invokes run-result assembly (roadmap Task 7).

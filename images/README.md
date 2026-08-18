@@ -19,14 +19,14 @@ The evaluator image is defined by `evaluator.Dockerfile`. Because the evaluator 
 
 - The candidate tree is mounted read-only at `/candidate`; Go build caches live in the container, so candidates never need in-tree writes.
 - The Docker socket is mounted so Testcontainers can manage the pinned PostgreSQL sibling container. The evaluator runs as uid 10001 and receives socket access only through a supplementary group: the daemon socket group on Linux, or gid 0 on Docker Desktop where the VM mounts the socket as `root:root`. Root is never used. Testcontainers for Go detects the in-container environment and reaches the published PostgreSQL port through the bridge gateway.
-- `test-evaluator-image.sh` proves credential absence, the unprivileged user, the offline module policy, and runs the baseline plus all three task-specific evaluator checks from the image against canonical fixtures.
+- `test-evaluator-image.sh` proves credential absence, the unprivileged user, the offline module policy, the pinned Ryuk identity, and evaluates both baseline fixtures plus all six Direct and Codegen task references from the image.
 
 ```sh
 make build-evaluator-image
 make test-evaluator-image
 ```
 
-The host Docker daemon must already hold the pinned PostgreSQL image and `testcontainers/ryuk:0.14.0`.
+The host Docker daemon must already hold the digest-pinned PostgreSQL and Ryuk images recorded in `config/versions.json`. The evaluator image fixes `TESTCONTAINERS_RYUK_CONTAINER_IMAGE` to that Ryuk digest, so Testcontainers never resolves a mutable cleanup-container tag.
 
 ## Local Build
 
@@ -46,6 +46,14 @@ Locally built image IDs are evidence for development checks, not frozen distribu
 The selected freeze mechanism is a reproducible OCI archive for each custom image; a public registry such as GHCR is not required. `export-oci.sh` implements the canonical `linux/amd64` build with timestamp normalization and disabled provenance/SBOM attestations.
 
 At freeze, retain the archives together with `manifest.json`, record both each OCI image digest and archive SHA-256, import the exact archives on a separate clean machine, and rerun both harness tests. A local Docker image ID alone is not a distributable identity.
+
+Prepare the Task 6 bundle only from a clean committed worktree and place it outside the repository and disposable cache:
+
+```sh
+make prepare-oci-bundle OUTPUT_DIR=/absolute/external/path
+```
+
+`config/independent-oci-validation.md` defines server rental, non-secret access handoff, exact-archive import, evidence preservation, and mandatory server deletion. On the clean Linux server, validation is exposed as `make validate-oci-bundle BUNDLE_DIR=/absolute/bundle EVIDENCE_DIR=/absolute/new-evidence` with the required non-secret server metadata environment variables.
 
 Registry publication remains an optional mirror. If it is added later, use equivalent immutable builds:
 

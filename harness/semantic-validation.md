@@ -2,6 +2,8 @@
 
 JSON Schema validates artifact shape. A deterministic semantic validator must enforce cross-file invariants that JSON Schema cannot express reliably.
 
+`harness/freezecheck` implements these checks. `make validate-config` is the pre-freeze entry point; `make validate-run` validates one result without replacement links, and `make validate-results` validates a result set including reciprocal replacement links.
+
 ## Configuration Freeze
 
 Reject `status: frozen` unless:
@@ -74,4 +76,14 @@ Codegen health never changes common `completeSuccess`.
 - Nonfailed original runs cannot name a replacement.
 - Protocol events contain category, timestamp, evidence, and forced-termination status.
 
-`TODO`: Implement this validator as a required pre-freeze and post-run command before pilots.
+## Commands
+
+```text
+make validate-config
+make test-freezecheck
+make validate-schedule PHASE=measured SCHEDULE=<path>
+make validate-run RUN_DIR=<path> SCHEDULE=<path>
+make validate-results RESULTS_DIR=<path> SCHEDULE=<path>
+```
+
+Draft configuration validation permits the placeholders reserved for Tasks 6 and 12. Frozen-mode validation rejects every placeholder, recomputes task hashes, resolves Git revisions, requires a clean worktree and validated network status, and validates the frozen measured schedule. Digest shape alone is not independent OCI evidence; clean-machine archive validation remains Roadmap Task 6.

@@ -14,6 +14,7 @@
     "allowedCapabilities": ["read", "edit", "bash"]
   },
   "frozenInputs": {
+    "configRevision": "TODO_GIT_COMMIT",
     "designRevision": "TODO_GIT_COMMIT",
     "evaluatorRevision": "TODO_GIT_COMMIT",
     "resultSchemaRevision": "TODO_GIT_COMMIT",

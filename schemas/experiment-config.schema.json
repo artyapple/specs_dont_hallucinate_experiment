@@ -46,6 +46,7 @@
     "frozenInputs": {
       "type": "object",
       "required": [
+        "configRevision",
         "designRevision",
         "evaluatorRevision",
         "resultSchemaRevision",
@@ -57,6 +58,7 @@
       ],
       "additionalProperties": false,
       "properties": {
+        "configRevision": {"type": "string", "minLength": 1},
         "designRevision": {"type": "string", "minLength": 1},
         "evaluatorRevision": {"type": "string", "minLength": 1},
         "resultSchemaRevision": {"type": "string", "minLength": 1},

@@ -3,6 +3,7 @@
   "schemaVersion": 1,
   "status": "draft",
   "strategy": "blocked-randomized",
+  "algorithm": "sha256-fisher-yates-v1",
   "seed": "TODO_FREEZE_BEFORE_MEASURED_RUNS",
   "generatedAt": null,
   "configRevision": "TODO_GIT_COMMIT",

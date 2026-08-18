@@ -2,7 +2,7 @@
 
 Status: draft. This policy must be implemented and negatively tested before pilots.
 
-Development evidence as of August 16, 2026: `test-network-policy.sh` and `test-tool-bridge.sh` pass against the locally built coordinator and Direct tool images plus the pinned PostgreSQL image. They prove internal PostgreSQL reachability, blocked external DNS/HTTPS, absence of provider credentials and the Docker socket, non-root execution, read-only system paths, exact Go `1.26.6`, remote native-tool execution, workspace path confinement, and command termination on timeout/abort. This is not freeze validation because the custom images do not yet have distributable digests and the final dual-network coordinator orchestration has not been frozen.
+Development evidence as of August 18, 2026: `test-network-policy.sh` passes against both locally built Direct and Codegen tool images, and `test-tool-bridge.sh` passes against the coordinator and Direct tool image. The checks prove internal PostgreSQL reachability; blocked external DNS, HTTPS, `wget`, Go proxy access, subprocess access, and redirect escape; absence of provider credentials from environment and process arguments; absence of the Docker socket; non-root execution; read-only system paths; exact Go `1.26.6`; remote native-tool execution; workspace path confinement; and command termination on timeout/abort. This is not freeze validation because the custom images do not yet have final transferred archive identities and the final dual-network coordinator orchestration has not been frozen.
 
 ## Threat Model
 

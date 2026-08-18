@@ -6,9 +6,9 @@ This repository will host the reproducible experiment for the talk `Specs Don't 
 
 Development infrastructure only. It is not ready for pilots or measured runs.
 
-Version selection, nullable-generation compatibility, the isolated tool bridge, a real-provider smoke, reproducible development OCI exports, baseline formal inputs, the Base 1 infrastructure skeleton, both canonical Base 2 services, and the external baseline and task-specific evaluator are implemented. Both Base 2 variants and all six draft canonical task references pass the applicable evaluator cases. The Base 1 Task API is intentionally absent; independent review of task references, complete run orchestration, and remaining freeze requirements remain open.
+Version selection, nullable-generation compatibility, the isolated tool bridge, a real-provider smoke, reproducible development OCI exports, baseline formal inputs, the Base 1 infrastructure skeleton, both canonical Base 2 services, the external evaluator, and freeze/schedule semantic tooling are implemented. Both Base 2 variants and all six draft canonical task references pass the applicable evaluator cases. The Base 1 Task API is intentionally absent; independent review of task references, complete run orchestration, independent OCI validation, pilots, and the global freeze remain open.
 
-The authoritative design decisions currently live in `../experiment-decisions.md`. Before the first pilot, copy or link a frozen revision into this repository so every run can reference an immutable design artifact.
+The authoritative design decisions live in `../experiment-decisions.md`. `config/design-revision.json` is the repository-owned content-addressed link to the current design revision; Task 12 updates its hash and records the clean freeze-input commit before changing the experiment status.
 
 ## Research Question
 
@@ -51,6 +51,11 @@ The implemented repository must eventually expose:
 
 ```text
 make validate-config
+make test-freezecheck
+make generate-schedule PHASE=measured SEED=<seed> REVISION=<commit> GENERATED_AT=<rfc3339> OUTPUT=<path>
+make validate-schedule PHASE=measured SCHEDULE=<path>
+make validate-run RUN_DIR=<path> SCHEDULE=<path>
+make validate-results RESULTS_DIR=<path> SCHEDULE=<path>
 make build-fixtures
 make verify-bases
 make pilot CELL=<cell-id> REPEAT=<n>

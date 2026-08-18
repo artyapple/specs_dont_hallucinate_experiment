@@ -60,7 +60,26 @@ docker exec "$TOOL" bash -c 'test ! -e /usr/local/bin/oapi-codegen && test ! -e 
 docker exec "$TOOL" bash -c 'test ! -S /var/run/docker.sock'
 docker exec "$TOOL" bash -c '! env | grep -F "synthetic-provider-secret"'
 docker exec "$TOOL" bash -c '! tr "\0" "\n" </proc/1/environ | grep -F "synthetic-provider-secret"'
+docker exec "$TOOL" bash -c 'for file in /proc/[0-9]*/cmdline; do if [ -r "$file" ] && grep -a -F "synthetic-provider-secret" "$file" >/dev/null; then exit 1; fi; done'
 docker exec "$TOOL" bash -c 'exec 3<>/dev/tcp/postgres/5432'
+docker exec "$TOOL" bash -c '! getent ahosts example.com >/dev/null 2>&1'
 docker exec "$TOOL" bash -c '! curl --fail --silent --show-error --max-time 3 https://example.com/'
 docker exec "$TOOL" bash -c '! curl --fail --silent --show-error --max-time 3 https://proxy.golang.org/'
+docker exec "$TOOL" bash -c 'test "$(go env GOPROXY)" = off'
+docker exec "$TOOL" bash -c '! command -v wget >/dev/null || ! wget -q -T 3 -O /dev/null https://example.com/'
+docker exec "$TOOL" bash -c 'bash -c '\''test "$(go env GOPROXY)" = off && ! curl --fail --silent --max-time 3 https://example.com/'\'''
 docker exec "$TOOL" bash -c 'test ! -w /usr/local/bin && test ! -w /workspace'
+
+docker exec "$TOOL" bash -c 'cat >/tmp/redirect.go <<'\''EOF'\''
+package main
+import "net/http"
+func main() { http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) { http.Redirect(w, r, "https://example.com/", http.StatusFound) }); _ = http.ListenAndServe("127.0.0.1:18080", nil) }
+EOF'
+docker exec -d "$TOOL" go run /tmp/redirect.go
+for _ in $(seq 1 30); do
+  if docker exec "$TOOL" curl --silent --max-time 1 http://127.0.0.1:18080/ >/dev/null 2>&1; then
+    break
+  fi
+  sleep 1
+done
+docker exec "$TOOL" bash -c '! curl --location --fail --silent --show-error --max-time 3 http://127.0.0.1:18080/'

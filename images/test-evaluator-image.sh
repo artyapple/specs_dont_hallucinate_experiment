@@ -9,6 +9,7 @@ set -euo pipefail
 readonly ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 readonly IMAGE="${EVALUATOR_IMAGE:-specs-experiment-evaluator:go1.26.6}"
 readonly SOCKET="${DOCKER_SOCKET:-/var/run/docker.sock}"
+readonly RYUK_IMAGE="$(jq -er '.frozen.ryukImage' "$ROOT/config/versions.json")"
 
 # The evaluator runs as unprivileged uid 10001. Access to the Docker socket is
 # granted through a supplementary group only: the socket group on the daemon
@@ -40,6 +41,11 @@ docker run --rm --entrypoint sh "$IMAGE" -c 'test "$GOPROXY" = off && test "$GOT
   || fail "module downloads are not disabled in the image"
 printf 'ok: offline module policy\n'
 
+# Testcontainers must create its cleanup sidecar from an immutable identity.
+docker run --rm --entrypoint sh "$IMAGE" -c 'test "$TESTCONTAINERS_RYUK_CONTAINER_IMAGE" = "$1"' sh "$RYUK_IMAGE" \
+  || fail "Ryuk cleanup image is not digest-pinned"
+printf 'ok: digest-pinned Ryuk cleanup image\n'
+
 # 4. Baseline and task-specific checks from the image.
 run_case() { # $1 task, $2 candidate source
   local task="$1" src="$2" dir
@@ -62,7 +68,10 @@ run_case() { # $1 task, $2 candidate source
 run_case baseline-service "$ROOT/fixtures/base2-direct"
 run_case baseline-service "$ROOT/fixtures/base2-codegen"
 run_case nullable-patch "$ROOT/fixtures/task-solutions/nullable-patch-direct"
+run_case nullable-patch "$ROOT/fixtures/task-solutions/nullable-patch-codegen"
 run_case optimistic-locking "$ROOT/fixtures/task-solutions/optimistic-locking-direct"
+run_case optimistic-locking "$ROOT/fixtures/task-solutions/optimistic-locking-codegen"
 run_case cursor-pagination "$ROOT/fixtures/task-solutions/cursor-pagination-direct"
+run_case cursor-pagination "$ROOT/fixtures/task-solutions/cursor-pagination-codegen"
 
 printf 'evaluator image checks passed\n'

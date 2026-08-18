@@ -5,6 +5,21 @@ readonly ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 readonly RUN_ID="oci-export-$(date -u +%Y%m%dT%H%M%SZ)-$$"
 readonly OUTPUT_DIR="${1:-$ROOT_DIR/.cache/oci-export/$RUN_ID}"
 readonly SOURCE_DATE_EPOCH="${SOURCE_DATE_EPOCH:-0}"
+readonly EXPORT_KIND="${OCI_EXPORT_KIND:-development-oci-export}"
+readonly SOURCE_REVISION="$(git -C "$ROOT_DIR" rev-parse HEAD)"
+
+case "$EXPORT_KIND" in
+  development-oci-export) DISTRIBUTABLE_PUBLICATION=false ;;
+  freeze-candidate-oci-export) DISTRIBUTABLE_PUBLICATION=true ;;
+  *) printf 'unsupported OCI_EXPORT_KIND: %s\n' "$EXPORT_KIND" >&2; exit 2 ;;
+esac
+readonly DISTRIBUTABLE_PUBLICATION
+
+if [ -z "$(git -C "$ROOT_DIR" status --porcelain --untracked-files=all)" ]; then
+  readonly SOURCE_TREE_CLEAN=true
+else
+  readonly SOURCE_TREE_CLEAN=false
+fi
 
 mkdir -p "$OUTPUT_DIR"
 
@@ -49,7 +64,11 @@ build_image evaluator images/evaluator.Dockerfile "" specs-export/evaluator:go1.
 
 jq -n \
   --arg runId "$RUN_ID" \
+  --arg kind "$EXPORT_KIND" \
+  --arg sourceRevision "$SOURCE_REVISION" \
   --arg createdAt "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+  --argjson distributablePublication "$DISTRIBUTABLE_PUBLICATION" \
+  --argjson sourceTreeClean "$SOURCE_TREE_CLEAN" \
   --argjson sourceDateEpoch "$SOURCE_DATE_EPOCH" \
   --arg coordinatorDigest "$(jq -er '."containerimage.digest"' "$OUTPUT_DIR/coordinator.build-metadata.json")" \
   --arg coordinatorArchiveSha256 "$(shasum -a 256 "$OUTPUT_DIR/coordinator.oci.tar" | cut -d ' ' -f 1)" \
@@ -61,8 +80,10 @@ jq -n \
   --arg evaluatorArchiveSha256 "$(shasum -a 256 "$OUTPUT_DIR/evaluator.oci.tar" | cut -d ' ' -f 1)" \
   '{
     runId: $runId,
-    kind: "development-oci-export",
-    distributablePublication: false,
+    kind: $kind,
+    distributablePublication: $distributablePublication,
+    sourceRevision: $sourceRevision,
+    sourceTreeClean: $sourceTreeClean,
     platform: "linux/amd64",
     provenance: false,
     sbom: false,

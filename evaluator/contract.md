@@ -17,6 +17,7 @@ The evaluator is stage-agnostic and treatment-agnostic. The harness maps a cell 
 ## Environment
 
 - The evaluator process requires access to a Docker-compatible container runtime (Testcontainers for Go v0.44.0, including its standard `DOCKER_*` and `TESTCONTAINERS_*` environment passthrough).
+- The evaluator OCI image sets standard Testcontainers variable `TESTCONTAINERS_RYUK_CONTAINER_IMAGE` to the digest-pinned Ryuk cleanup image recorded in `config/versions.json`; the host daemon must contain that exact image before offline evaluation.
 - The evaluator defines no evaluator-specific environment variables.
 - Candidate commands inherit the evaluator process environment with provider credentials (`OPENROUTER_API_KEY`) stripped, plus exactly `DATABASE_URL` for `make build`, `make migrate`, and `make run`, plus `HTTP_ADDR` for `make run` only. The evaluator image contains no provider credentials and must never receive any at runtime; the harness run-result assembler additionally strips provider keys from the environment it passes to the evaluator process.
 

@@ -38,6 +38,7 @@ RUN useradd --create-home --uid 10001 --shell /bin/bash evaluator \
 ENV GOTOOLCHAIN=local \
     GOPROXY=off \
     GOSUMDB=off \
+    TESTCONTAINERS_RYUK_CONTAINER_IMAGE=docker.io/testcontainers/ryuk:0.14.0@sha256:7c1a8a9a47c780ed0f983770a662f80deb115d95cce3e2daa3d12115b8cd28f0 \
     GOCACHE=/home/evaluator/.cache/go-build \
     GOPATH=/go \
     HOME=/home/evaluator

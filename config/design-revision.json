@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "status": "draft",
+  "source": "../../experiment-decisions.md",
+  "sourceSha256": "4f0832e57c4502604f8827ceaada44b3fef95d8a4cd29a2dc6faa1f43d6875f6",
+  "recordedAt": "2026-08-18",
+  "evidence": [
+    "compatibility/nullable/README.md",
+    "config/versions.json",
+    "images/coordinator.Dockerfile",
+    "images/tool.Dockerfile"
+  ]
+}
