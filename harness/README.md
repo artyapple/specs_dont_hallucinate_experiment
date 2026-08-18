@@ -54,7 +54,7 @@ OPENCODE_DISABLE_LSP_DOWNLOAD=1 \
 
 The harness, not OpenCode, enforces the 45-minute wall-clock timeout. `opencode-run.json` defaults every capability to `deny` and allows only `read`, `edit`, and `bash`. For `gpt-5.6-sol`, OpenCode exposes `apply_patch` in place of `edit`/`write`; other models such as DeepSeek expose `edit` and `write`. The plugin overrides `read`, `bash`, `apply_patch`, `edit`, and `write` with the same IDs and compatible schemas.
 
-Before pilots, `smoke-openrouter.sh` runs one disposable development smoke against the real provider. It resolves the model only from `config/experiment.json`, attaches the coordinator to provider egress and the internal tool network, and leaves the credential-free tool container only on the internal network. It exercises `read`, `bash`, `write`, and `edit` without using any experiment fixture or pilot directory:
+Before pilots, `smoke-openrouter.sh` runs one disposable development smoke against the real provider. It resolves the model only from `config/experiment.json`, attaches the coordinator only to the internal tool and provider networks, maps `openrouter.ai` to the fixed-destination TLS relay owned by `restricted-egress.sh`, and leaves the credential-free tool container only on the internal tool network. It exercises `read`, `bash`, `write`, and `edit` without using any experiment fixture or pilot directory:
 
 ```sh
 ./harness/smoke-openrouter.sh
@@ -158,7 +158,6 @@ The driver refuses to overwrite a run directory, rejects symlinks, special files
 
 ## Remaining Work
 
-- Freeze orchestration that gives the coordinator provider egress while leaving the tool container on its internal-only network.
 - Publish or reproducibly export the custom images and replace local image IDs with distributable digests.
 - Extend the synthetic finalization boundary with real OpenCode/container execution before pilots; Task 7 intentionally does not implement measured-run orchestration.
 - Implement transcript secret scrubbing.

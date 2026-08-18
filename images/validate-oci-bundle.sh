@@ -186,9 +186,11 @@ readonly CODEGEN_IMAGE="$(jq -er '.images.toolCodegen.tag' "$MANIFEST")"
 readonly EVALUATOR_IMAGE="$(jq -er '.images.evaluator.tag' "$MANIFEST")"
 readonly POSTGRES_IMAGE="$(jq -er '.frozen.postgresImage' "$ROOT/config/versions.json")"
 readonly RYUK_IMAGE="$(jq -er '.frozen.ryukImage' "$ROOT/config/versions.json")"
+readonly GO_IMAGE="$(jq -er '.baseImages.go' "$ROOT/config/versions.json")"
 
 run_check pull-postgres docker pull "$POSTGRES_IMAGE"
 run_check pull-ryuk docker pull "$RYUK_IMAGE"
+run_check pull-egress-runtime docker pull "$GO_IMAGE"
 
 for image in "$COORDINATOR_IMAGE" "$DIRECT_IMAGE" "$CODEGEN_IMAGE" "$EVALUATOR_IMAGE"; do
   run_check "credential-absence-$(printf '%s' "$image" | tr '/:' '--')" \
@@ -203,6 +205,7 @@ run_check bridge-direct env COORDINATOR_IMAGE="$COORDINATOR_IMAGE" TOOL_IMAGE="$
 run_check bridge-codegen env COORDINATOR_IMAGE="$COORDINATOR_IMAGE" TOOL_IMAGE="$CODEGEN_IMAGE" "$ROOT/harness/test-tool-bridge.sh"
 run_check network-direct env COORDINATOR_IMAGE="$COORDINATOR_IMAGE" TOOL_IMAGE="$DIRECT_IMAGE" "$ROOT/harness/test-network-policy.sh"
 run_check network-codegen env COORDINATOR_IMAGE="$COORDINATOR_IMAGE" TOOL_IMAGE="$CODEGEN_IMAGE" "$ROOT/harness/test-network-policy.sh"
+run_check coordinator-egress env EGRESS_PROXY_IMAGE="$GO_IMAGE" COORDINATOR_IMAGE="$COORDINATOR_IMAGE" TOOL_IMAGE="$DIRECT_IMAGE" "$ROOT/harness/test-coordinator-egress.sh"
 run_check evaluator-image env EVALUATOR_IMAGE="$EVALUATOR_IMAGE" "$ROOT/images/test-evaluator-image.sh"
 
 STATUS=passed

@@ -47,9 +47,10 @@ The command must fail unless:
 - coordinator/tool bridge positive and negative tests pass;
 - Direct and Codegen tools reach the internal PostgreSQL service but cannot reach arbitrary HTTPS or Go module infrastructure;
 - synthetic coordinator credentials are absent from both tool environments and their process state;
-- the evaluator image has no provider credential, runs as uid 10001, enforces offline Go modules, uses the pinned Ryuk digest, and passes all canonical image evaluations.
+- the evaluator image has no provider credential, runs as uid 10001, enforces offline Go modules, uses the pinned Ryuk digest, and passes all canonical image evaluations;
+- the imported coordinator reaches OpenRouter through the fixed-destination relay but cannot reach non-provider HTTPS, plain HTTP, or OpenRouter by a direct-address bypass, while the imported tool cannot reach the relay.
 
-The Docker network tests prove the credential-free tool boundary and internal-only tool network. They do not by themselves prove domain-level filtering of coordinator egress. `networkPolicyEnforcementStatus` must remain `unvalidated` unless the final coordinator provider-egress mechanism has a separate positive OpenRouter test and negative non-provider egress test.
+The Docker network tests prove the credential-free tool boundary, internal-only tool network, and domain-level coordinator filtering. The positive coordinator check is an unauthenticated OpenRouter HTTPS request, not a model request. `networkPolicyEnforcementStatus` remains `unvalidated` until this exact protocol passes with the imported freeze-candidate images on the separate clean machine.
 
 ## Evidence
 

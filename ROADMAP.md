@@ -77,7 +77,7 @@ Evidence (2026-08-18): `harness/freezecheck/` implements deterministic draft/fro
 - [ ] Mark network enforcement `validated` only if the frozen validation protocol passes.
 - [ ] Copy all non-secret evidence off the server, verify it locally, and have the owner manually delete the disposable server before completing this task.
 
-Evidence: TODO
+Preparation evidence (2026-08-18; Task remains open): `harness/restricted-egress.sh` now defines the shared dual-internal-network topology for the model-free check and the real-provider smoke. The coordinator has no direct external network; a uid-10001 repository-owned TCP relay, run from the digest-pinned Go base image, is the only container attached to external `bridge` and always forwards to exactly `openrouter.ai:443`. Local `test-coordinator-egress.sh` passes without `OPENROUTER_API_KEY` or OpenCode: positive unauthenticated OpenRouter HTTPS, negative non-provider HTTPS and plain HTTP, direct-address bypass, redirect escape, tool-to-relay isolation, internal bridge reachability, exact network membership, and relay credential absence. `validate-oci-bundle.sh` will rerun this check against the imported coordinator/tool and records it separately. This is orchestration-only and does not change any custom image build input. Local evidence does not complete Task 6 or change `networkPolicyEnforcementStatus`; exact archives, clean-machine validation, evidence retrieval, and manual VM deletion are still required.
 
 ## Experiment Execution And Publication
 

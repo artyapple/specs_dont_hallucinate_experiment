@@ -3,19 +3,21 @@ set -euo pipefail
 
 readonly HARNESS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly ROOT_DIR="$(cd "$HARNESS_DIR/.." && pwd)"
+# shellcheck source=restricted-egress.sh
+. "$HARNESS_DIR/restricted-egress.sh"
 readonly ENV_FILE="$ROOT_DIR/.env"
 readonly CONFIG_FILE="$ROOT_DIR/config/experiment.json"
 readonly RUN_CONFIG_FILE="$HARNESS_DIR/opencode-run.json"
-readonly TOOL_IMAGE="specs-experiment-tool-direct:go1.26.6"
-readonly COORDINATOR_IMAGE="specs-experiment-coordinator:1.18.18"
+readonly TOOL_IMAGE="${TOOL_IMAGE:-specs-experiment-tool-direct:go1.26.6}"
+readonly COORDINATOR_IMAGE="${COORDINATOR_IMAGE:-specs-experiment-coordinator:1.18.18}"
 readonly RUN_ID="openrouter-smoke-$(date -u +%Y%m%dT%H%M%SZ)-$$"
-readonly NETWORK="$RUN_ID-tool"
 readonly TOOL="$RUN_ID-tool"
 readonly COORDINATOR="$RUN_ID-coordinator"
 readonly WORKSPACE="$(mktemp -d)"
 readonly ARTIFACT_DIR="$ROOT_DIR/.cache/openrouter-smoke/$RUN_ID"
 readonly MODEL="$(jq -er '.model.id | select(type == "string" and length > 0)' "$CONFIG_FILE")"
 readonly RUN_CONFIG="$(jq -c . "$RUN_CONFIG_FILE")"
+restricted_egress_names "$RUN_ID"
 readonly PROMPT='Perform this exact smoke scenario using tools, in order. Do not skip or simulate any step.
 1. Use read on /workspace/input.txt and confirm it contains alpha-17.
 2. Use bash with workdir /workspace to run exactly: set -eu; test -z "${OPENROUTER_API_KEY+x}"; ! tr "\0" "\n" </proc/1/environ | grep -q "^OPENROUTER_API_KEY="; printf "bash=ok\ncredential_absent=true\nuid=%s\n" "$(id -u)" > /workspace/bash-evidence.txt
@@ -27,7 +29,7 @@ After all six tool steps succeed, reply with exactly SMOKE_OK.'
 
 cleanup() {
   docker rm -f "$TOOL" "$COORDINATOR" >/dev/null 2>&1 || true
-  docker network rm "$NETWORK" >/dev/null 2>&1 || true
+  restricted_egress_stop
   rm -rf "$WORKSPACE"
 }
 trap cleanup EXIT
@@ -60,18 +62,19 @@ mkdir -p "$ARTIFACT_DIR/workspace"
 printf 'alpha-17\n' >"$WORKSPACE/input.txt"
 chmod -R a+rwX "$WORKSPACE"
 
-docker network create --internal "$NETWORK" >/dev/null
+restricted_egress_start
 docker run -d \
   --name "$TOOL" \
   --init \
   --hostname tool-executor \
-  --network "$NETWORK" \
+  --network "$TOOL_NETWORK" \
   --network-alias tool \
   --read-only \
   --tmpfs /tmp:rw,exec,nosuid,nodev,uid=10001,gid=10001 \
   --tmpfs /home/candidate/.cache/go-build:rw,nosuid,nodev,uid=10001,gid=10001 \
   --cap-drop ALL \
   --security-opt no-new-privileges \
+  --add-host "openrouter.ai:$EGRESS_PROXY_IP" \
   -v "$WORKSPACE:/workspace" \
   "$TOOL_IMAGE" >/dev/null
 
@@ -92,7 +95,7 @@ docker exec "$TOOL" bash -c '! tr "\0" "\n" </proc/1/environ | grep -q "^OPENROU
 docker create \
   --name "$COORDINATOR" \
   --hostname coordinator \
-  --network "$NETWORK" \
+  --network "$TOOL_NETWORK" \
   --read-only \
   --tmpfs /tmp:rw,exec,nosuid,nodev,uid=10001,gid=10001 \
   --cap-drop ALL \
@@ -106,7 +109,7 @@ docker create \
   -e XDG_CACHE_HOME=/tmp/opencode-cache \
   -e XDG_STATE_HOME=/tmp/opencode-state \
   "$COORDINATOR_IMAGE" run --agent experiment --format json --dir /workspace "$PROMPT" >/dev/null
-docker network connect --gw-priority 1 bridge "$COORDINATOR"
+docker network connect "$PROVIDER_NETWORK" "$COORDINATOR"
 docker start "$COORDINATOR" >/dev/null
 
 deadline=$((SECONDS + 600))

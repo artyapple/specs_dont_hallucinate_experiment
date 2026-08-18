@@ -1,4 +1,4 @@
-.PHONY: build-analysis-input build-evaluator build-evaluator-image build-freezecheck build-rundriver build-runresult evaluate-bases evaluate-base2-codegen evaluate-base2-direct evaluate-task-solutions export-oci generate-schedule prepare-oci-bundle test-analysis-input test-base1-skeleton test-base2-codegen test-base2-direct test-evaluator test-evaluator-image test-freezecheck test-nullable-compatibility test-rundriver test-runresult test-runresult-integration test-task7-dry-run validate-analysis-input validate-config validate-formal validate-oci-bundle validate-results validate-run validate-schedule validate-task-targets verify-task-solutions
+.PHONY: build-analysis-input build-evaluator build-evaluator-image build-freezecheck build-rundriver build-runresult evaluate-bases evaluate-base2-codegen evaluate-base2-direct evaluate-task-solutions export-oci generate-schedule prepare-oci-bundle test-analysis-input test-base1-skeleton test-base2-codegen test-base2-direct test-coordinator-egress test-egressproxy test-evaluator test-evaluator-image test-freezecheck test-nullable-compatibility test-rundriver test-runresult test-runresult-integration test-task7-dry-run validate-analysis-input validate-config validate-formal validate-oci-bundle validate-results validate-run validate-schedule validate-task-targets verify-task-solutions
 
 build-evaluator:
 	mkdir -p bin
@@ -20,6 +20,12 @@ prepare-oci-bundle:
 validate-oci-bundle:
 	test -n "$(BUNDLE_DIR)" && test -n "$(EVIDENCE_DIR)"
 	./images/validate-oci-bundle.sh "$(BUNDLE_DIR)" "$(EVIDENCE_DIR)"
+
+test-egressproxy:
+	cd harness/egressproxy && go test ./...
+
+test-coordinator-egress:
+	env -u OPENROUTER_API_KEY ./harness/test-coordinator-egress.sh
 
 build-runresult:
 	mkdir -p bin
