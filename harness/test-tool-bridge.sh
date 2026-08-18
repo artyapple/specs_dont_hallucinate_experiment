@@ -51,20 +51,6 @@ run_tool() {
     "$COORDINATOR_IMAGE" debug agent experiment --tool "$tool" --params "$params"
 }
 
-load_tools() {
-  local model="$1" response
-  for _ in $(seq 1 30); do
-    response="$(docker exec "$COORDINATOR" curl --fail --silent --max-time 60 \
-      "http://127.0.0.1:4097/experimental/tool?provider=openrouter&model=$model")" || response=""
-    if jq -e 'type == "array" and length > 0' >/dev/null <<<"$response"; then
-      printf '%s\n' "$response"
-      return
-    fi
-    sleep 1
-  done
-  fail "tool-list endpoint did not return a non-empty JSON roster"
-}
-
 docker network create --internal "$NETWORK" >/dev/null
 
 docker run -d \
@@ -110,31 +96,6 @@ done
 
 docker inspect --format '{{.State.Running}}' "$COORDINATOR" | grep -Fx true >/dev/null \
   || fail "coordinator failed during startup"
-TOOLS="$(load_tools 'openai%2Fgpt-5.6-sol')"
-DEEPSEEK_TOOLS="$(load_tools 'deepseek%2Fdeepseek-v4-flash-0731')"
-for tool in read bash apply_patch; do
-  test "$(jq --arg id "$tool" '[.[] | select(.id == $id)] | length' <<<"$TOOLS")" -ge 2 \
-    || fail "$tool built-in and plugin definitions were not both loaded"
-done
-for tool in edit write; do
-  test "$(jq --arg id "$tool" '[.[] | select(.id == $id)] | length' <<<"$DEEPSEEK_TOOLS")" -ge 2 \
-    || fail "$tool built-in and plugin definitions were not both loaded"
-done
-test "$(jq -r 'reduce .[] as $tool ({}; .[$tool.id] = $tool) | .read.description' <<<"$TOOLS")" \
-  = "Read a file or directory from the isolated candidate workspace." \
-  || fail "plugin read did not win the runtime-order reduction"
-test "$(jq -r 'reduce .[] as $tool ({}; .[$tool.id] = $tool) | .bash.description' <<<"$TOOLS")" \
-  = "Execute a bash command inside the isolated credential-free tool container." \
-  || fail "plugin bash did not win the runtime-order reduction"
-test "$(jq -r 'reduce .[] as $tool ({}; .[$tool.id] = $tool) | .apply_patch.description' <<<"$TOOLS")" \
-  = "Apply an OpenCode patch to files inside the isolated candidate workspace." \
-  || fail "plugin apply_patch did not win the runtime-order reduction"
-test "$(jq -r 'reduce .[] as $tool ({}; .[$tool.id] = $tool) | .edit.description' <<<"$DEEPSEEK_TOOLS")" \
-  = "Replace text in a file inside the isolated candidate workspace." \
-  || fail "plugin edit did not win the runtime-order reduction"
-test "$(jq -r 'reduce .[] as $tool ({}; .[$tool.id] = $tool) | .write.description' <<<"$DEEPSEEK_TOOLS")" \
-  = "Write a file inside the isolated candidate workspace." \
-  || fail "plugin write did not win the runtime-order reduction"
 
 BASH_ARGS="$(jq -nc --arg command \
   'hostname; id -u; pwd; ! env | grep -F synthetic-provider-secret; ! tr "\0" "\n" </proc/1/environ | grep -F synthetic-provider-secret; ! grep -R -F synthetic-provider-secret /workspace /home/candidate 2>/dev/null; printf "alpha\nbeta\n" > evidence.txt; printf "stdout-line\n"; printf "stderr-line\n" >&2; exit 7' \

@@ -76,7 +76,7 @@ OpenCode `v1.18.18` source establishes the override behavior:
 - `packages/plugin/src/tool.ts:3-20` supplies the plugin `AbortSignal`;
 - `packages/opencode/src/tool/shell.ts:533-594` defines native abort, timeout, output, and exit semantics.
 
-`test-tool-bridge.sh` is a model-free integration test. The official experimental tool-list endpoint proves that all five plugin definitions load after the matching built-ins in GPT and DeepSeek tool modes and applies the same last-write reduction as session resolution. OpenCode's debug command selects the first duplicate definition rather than the runtime winner, so test-only alias IDs invoke the same plugin definitions to exercise transport and native tools without a model call. The aliases exist only when `TOOL_BRIDGE_TEST_ALIASES=1` and are absent from experiment runs.
+`test-tool-bridge.sh` is a model-free integration test. Test-only alias IDs invoke the same plugin definitions to exercise transport and native tools without a model call; the aliases exist only when `TOOL_BRIDGE_TEST_ALIASES=1` and are absent from experiment runs. The clean-machine test intentionally does not call OpenCode's network-dependent experimental tool-list endpoint. Production-ID override ordering is grounded in the pinned OpenCode source locations above rather than claimed as clean-machine runtime evidence.
 
 ## Isolation
 
