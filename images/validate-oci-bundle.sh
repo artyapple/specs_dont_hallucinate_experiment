@@ -201,8 +201,8 @@ run_check evaluator-ryuk-pin sh -c '
 
 run_check bridge-direct env COORDINATOR_IMAGE="$COORDINATOR_IMAGE" TOOL_IMAGE="$DIRECT_IMAGE" "$ROOT/harness/test-tool-bridge.sh"
 run_check bridge-codegen env COORDINATOR_IMAGE="$COORDINATOR_IMAGE" TOOL_IMAGE="$CODEGEN_IMAGE" "$ROOT/harness/test-tool-bridge.sh"
-run_check network-direct env COORDINATOR_IMAGE="$COORDINATOR_IMAGE" TOOL_IMAGE="$DIRECT_IMAGE" "$ROOT/harness/test-network-policy.sh"
-run_check network-codegen env COORDINATOR_IMAGE="$COORDINATOR_IMAGE" TOOL_IMAGE="$CODEGEN_IMAGE" "$ROOT/harness/test-network-policy.sh"
+run_check network-direct env TOOL_TREATMENT=direct COORDINATOR_IMAGE="$COORDINATOR_IMAGE" TOOL_IMAGE="$DIRECT_IMAGE" "$ROOT/harness/test-network-policy.sh"
+run_check network-codegen env TOOL_TREATMENT=codegen COORDINATOR_IMAGE="$COORDINATOR_IMAGE" TOOL_IMAGE="$CODEGEN_IMAGE" "$ROOT/harness/test-network-policy.sh"
 run_check coordinator-egress env EGRESS_PROXY_IMAGE="$GO_IMAGE" COORDINATOR_IMAGE="$COORDINATOR_IMAGE" TOOL_IMAGE="$DIRECT_IMAGE" "$ROOT/harness/test-coordinator-egress.sh"
 run_check evaluator-image env EVALUATOR_IMAGE="$EVALUATOR_IMAGE" "$ROOT/images/test-evaluator-image.sh"
 

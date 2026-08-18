@@ -9,6 +9,7 @@ readonly SECRET="synthetic-provider-secret-$RANDOM-$$"
 readonly POSTGRES_IMAGE="docker.io/library/postgres@sha256:06cad38a5d9f5d24b4d83d86def30795d5e4b757fedbf5281172b576dedcd941"
 readonly TOOL_IMAGE="${TOOL_IMAGE:-specs-experiment-tool-direct:go1.26.6}"
 readonly COORDINATOR_IMAGE="${COORDINATOR_IMAGE:-specs-experiment-coordinator:1.18.18}"
+readonly TOOL_TREATMENT="${TOOL_TREATMENT:-direct}"
 
 cleanup() {
   docker rm -f "$TOOL" "$COORDINATOR" "$POSTGRES" >/dev/null 2>&1 || true
@@ -56,11 +57,22 @@ done
 test "$(docker inspect --format '{{.State.Health.Status}}' "$POSTGRES")" = "healthy"
 
 docker exec "$TOOL" bash -c 'test "$(go version)" = "go version go1.26.6 linux/amd64"'
-docker exec "$TOOL" bash -c 'test ! -e /usr/local/bin/oapi-codegen && test ! -e /usr/local/bin/sqlc'
+case "$TOOL_TREATMENT" in
+  direct)
+    docker exec "$TOOL" bash -c 'test ! -e /usr/local/bin/oapi-codegen && test ! -e /usr/local/bin/sqlc'
+    ;;
+  codegen)
+    docker exec "$TOOL" bash -c 'test "$(oapi-codegen --version | tail -n 1)" = v2.8.0 && test "$(sqlc version)" = v1.31.1'
+    ;;
+  *)
+    printf 'unsupported TOOL_TREATMENT: %s\n' "$TOOL_TREATMENT" >&2
+    exit 2
+    ;;
+esac
 docker exec "$TOOL" bash -c 'test ! -S /var/run/docker.sock'
 docker exec "$TOOL" bash -c '! env | grep -F "synthetic-provider-secret"'
 docker exec "$TOOL" bash -c '! tr "\0" "\n" </proc/1/environ | grep -F "synthetic-provider-secret"'
-docker exec "$TOOL" bash -c 'for file in /proc/[0-9]*/cmdline; do if [ -r "$file" ] && grep -a -F "synthetic-provider-secret" "$file" >/dev/null; then exit 1; fi; done'
+docker exec -i "$TOOL" bash -c 'read -r needle; for file in /proc/[0-9]*/cmdline; do if [ -r "$file" ] && grep -a -F "$needle" "$file" >/dev/null; then exit 1; fi; done' <<<"$SECRET"
 docker exec "$TOOL" bash -c 'exec 3<>/dev/tcp/postgres/5432'
 docker exec "$TOOL" bash -c '! getent ahosts example.com >/dev/null 2>&1'
 docker exec "$TOOL" bash -c '! curl --fail --silent --show-error --max-time 3 https://example.com/'
