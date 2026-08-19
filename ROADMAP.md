@@ -102,15 +102,15 @@ Evidence (2026-08-17): six draft references exist under `fixtures/task-solutions
 
 ### 9. Known-Broken Coverage Completion
 
-- [ ] Cover nullable omitted, null, and value confusion.
-- [ ] Cover malformed and stale ETag behavior.
-- [ ] Cover lost-update concurrency failures.
-- [ ] Cover unstable pagination, timestamp ties, duplicates, and gaps.
-- [ ] Cover HTTP and database inconsistency.
-- [ ] Cover generated drift or forbidden generated-file edits where applicable.
-- [ ] Record the expected failing case for every known-broken candidate.
+- [x] Cover nullable omitted, null, and value confusion.
+- [x] Cover malformed and stale ETag behavior.
+- [x] Cover lost-update concurrency failures.
+- [x] Cover unstable pagination, timestamp ties, duplicates, and gaps.
+- [x] Cover HTTP and database inconsistency.
+- [x] Cover generated drift or forbidden generated-file edits where applicable.
+- [x] Record the expected failing case for every known-broken candidate.
 
-Evidence: TODO
+Evidence (2026-08-19): evaluator known-broken tests use synthetic HTTP mutants and temporary state rather than copied candidate fixtures, and a shared assertion rejects any mutant without an expected case ID. Nullable omission-as-null, null-as-omitted, and value-as-null fail `nullable.omitted-preserves`, `nullable.null-clears`, and `nullable.value-sets`; malformed acceptance and stale acceptance fail `locking.malformed-if-match` and `locking.stale-if-match`; two same-ETag winners fail `locking.concurrent-single-winner`; unstable order, duplicates, and gaps fail `pagination.multiple-pages`, while a timestamp-only cursor that skips a tied row fails `pagination.timestamp-tie`; an HTTP create response without persisted state fails `contract.database-consistency`. Existing baseline order, OpenAPI shape, and Problem Details mutants retain their explicit expected case IDs. Harness integration mutates a generated file in a temporary Codegen workspace and requires the separate process-health outcome `canonical: false`, `manualEditDetected: true`; no behavior case is fabricated and common `completeSuccess` remains evaluator-owned. `make validate-config`, `make test-evaluator`, evaluator `go test -race ./...`, `go vet ./...`, `go mod verify`, `make test-runresult`, `make test-runresult-integration`, `make test-freezecheck`, `make validate-task-targets`, `make verify-task-solutions`, changed-script `bash -n`, and `git diff --check` pass. Only evaluator `_test.go`, a harness integration script outside Dockerfile `COPY`, and documentation changed; evaluator production source, binary behavior, contract, schemas, fixture preload, and runtime image inputs did not change.
 
 ### 10. Fourteen Unmeasured Pilots
 

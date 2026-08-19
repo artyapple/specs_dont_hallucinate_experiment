@@ -37,7 +37,7 @@ Task 6 followed the required order: a clean source revision produced the externa
 | Nullable request distinguishes omitted/null/value | Compatibility owner | `make test-nullable-compatibility` | Automated check available |
 | Generated output regenerates byte-for-byte | Fixture owner | `make test-base2-codegen verify-task-solutions` | Automated check available |
 | Evaluator passes canonical correct solutions | Evaluator owner | `make evaluate-task-solutions` | Automated check available; human review remains Task 8 |
-| Evaluator rejects every important known-broken class | Evaluator owner | `make test-evaluator` | Coverage completion is Task 9 |
+| Evaluator rejects every important known-broken class | Evaluator and harness owners | `make test-evaluator test-runresult-integration` | Automated mutation coverage completed in Task 9 |
 | Result schema and extraction work end-to-end | Harness owner | `make test-runresult test-runresult-integration test-freezecheck` | Automated checks available |
 | All 14 unmeasured pilots complete | Pilot operator | `make validate-results RESULTS_DIR=pilots SCHEDULE=<pilot-schedule>` | Run driver Task 7 and pilots Task 10; no pilots in Task 5 |
 | Pilot artifacts stay outside measured results | Pilot operator | `make validate-results RESULTS_DIR=pilots SCHEDULE=<pilot-schedule>` and independent directory review | Task 10 |

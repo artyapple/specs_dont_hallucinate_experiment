@@ -80,7 +80,18 @@ assert_jq "$result" '.evaluation.completeSuccess == true' "canonical codegen bas
 assert_jq "$result" '.evaluation.codegenHealth == {"generationSucceeded":true,"canonical":true,"idempotent":true,"manualEditDetected":false}' "codegen health canonical"
 printf 'ok: greenfield-codegen-pass\n'
 
-# 3. Candidate failure: broken migration keeps status submitted and fails gates.
+# 3. Generated-file drift is detected as Codegen process health without changing common success.
+dir="$(new_run_dir greenfield-codegen-generated-drift greenfield-codegen submitted)"
+cp -R "$ROOT/fixtures/base2-codegen" "$dir/workspace"
+printf '\n// known-broken manual generated-file edit\n' >>"$dir/workspace/internal/httpapi/generated.gen.go"
+"$RUNRESULT" -run-dir "$dir" -root "$ROOT" >/dev/null
+result="$dir/run-result.json"
+assert_jq "$result" '.evaluation.completeSuccess == true' "codegen health stays separate from common success"
+assert_jq "$result" '.evaluation.codegenHealth == {"generationSucceeded":true,"canonical":false,"idempotent":true,"manualEditDetected":true}' "generated drift expected failing health outcome"
+assert_jq "$result" '(.evaluation.residualFailures | length) == 0' "process health does not fabricate a behavior case failure"
+printf 'ok: greenfield-codegen-generated-drift\n'
+
+# 4. Candidate failure: broken migration keeps status submitted and fails gates.
 dir="$(new_run_dir candidate-migration-failure greenfield-direct submitted)"
 cp -R "$ROOT/fixtures/base2-direct" "$dir/workspace"
 printf '\nTHIS IS NOT VALID SQL;\n' >>"$dir/workspace/db/migrations/000001_create_tasks.sql"
@@ -94,7 +105,7 @@ assert_jq "$result" '.evaluation.commonGates["service-start"] == false' "service
 assert_jq "$result" '(.evaluation.residualFailures | length) > 0' "residual failures recorded"
 printf 'ok: candidate-migration-failure\n'
 
-# 4. Driver-classified infrastructure failure: no evaluator run, null evaluation.
+# 5. Driver-classified infrastructure failure: no evaluator run, null evaluation.
 dir="$(new_run_dir infra-failure-input greenfield-direct infrastructure-failure)"
 add_infrastructure_note "$dir" "model-provider-outage"
 "$RUNRESULT" -run-dir "$dir" -root "$ROOT" >/dev/null
@@ -106,7 +117,7 @@ assert_jq "$result" '.infrastructure.excluded == false and .infrastructure.repla
 assert_jq "$dir/evaluation.json" '. == null' "evaluation.json artifact holds null"
 printf 'ok: infra-failure-input\n'
 
-# 5. Driver-classified harness failure: null evaluation, schema-valid result.
+# 6. Driver-classified harness failure: null evaluation, schema-valid result.
 dir="$(new_run_dir harness-failure-input greenfield-codegen harness-failure)"
 add_infrastructure_note "$dir" "harness-process-crash"
 "$RUNRESULT" -run-dir "$dir" -root "$ROOT" >/dev/null

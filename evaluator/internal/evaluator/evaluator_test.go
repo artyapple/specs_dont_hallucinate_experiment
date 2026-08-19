@@ -79,10 +79,18 @@ func TestKnownBrokenCandidatesAreRejected(t *testing.T) {
 
 	for _, testCase := range tests {
 		t.Run(testCase.caseID+"/"+testCase.name, func(t *testing.T) {
-			if err := testCase.check(); err == nil {
-				t.Fatalf("known-broken candidate passed %s", testCase.caseID)
-			}
+			assertKnownBroken(t, testCase.caseID, testCase.check)
 		})
+	}
+}
+
+func assertKnownBroken(t *testing.T, expectedCaseID string, check func() error) {
+	t.Helper()
+	if expectedCaseID == "" {
+		t.Fatal("known-broken candidate has no expected failing case ID")
+	}
+	if err := check(); err == nil {
+		t.Fatalf("known-broken candidate passed %s", expectedCaseID)
 	}
 }
 
@@ -129,9 +137,9 @@ func TestKnownBrokenNonPersistingCandidateIsRejected(t *testing.T) {
 	defer server.Close()
 
 	broken := &suite{baseURL: server.URL, client: server.Client(), db: pool}
-	if err := broken.databaseConsistency(ctx); err == nil {
-		t.Fatal("known-broken non-persisting candidate passed contract.database-consistency")
-	}
+	assertKnownBroken(t, "contract.database-consistency", func() error {
+		return broken.databaseConsistency(ctx)
+	})
 }
 
 func TestKnownBrokenNullableOmittedValueIsRejected(t *testing.T) {
@@ -166,9 +174,113 @@ func TestKnownBrokenNullableOmittedValueIsRejected(t *testing.T) {
 	defer server.Close()
 
 	broken := &suite{baseURL: server.URL, client: server.Client(), task: TaskNullable}
-	if err := broken.nullableOmittedPreserves(context.Background()); err == nil {
-		t.Fatal("known-broken omitted-as-null candidate passed nullable.omitted-preserves")
+	assertKnownBroken(t, "nullable.omitted-preserves", func() error {
+		return broken.nullableOmittedPreserves(context.Background())
+	})
+}
+
+func TestKnownBrokenNullableNullAndValueConfusionIsRejected(t *testing.T) {
+	tests := []struct {
+		name           string
+		expectedCaseID string
+		patchDueAt     func(current string, raw json.RawMessage) string
+		check          func(*suite) error
+	}{
+		{
+			name:           "null treated as omitted",
+			expectedCaseID: "nullable.null-clears",
+			patchDueAt: func(current string, raw json.RawMessage) string {
+				if string(raw) == "null" {
+					return current
+				}
+				var value string
+				_ = json.Unmarshal(raw, &value)
+				return value
+			},
+			check: func(broken *suite) error {
+				return broken.nullableNullClears(context.Background())
+			},
+		},
+		{
+			name:           "value treated as null",
+			expectedCaseID: "nullable.value-sets",
+			patchDueAt: func(_ string, _ json.RawMessage) string {
+				return ""
+			},
+			check: func(broken *suite) error {
+				return broken.nullableValueSets(context.Background())
+			},
+		},
 	}
+
+	for _, testCase := range tests {
+		t.Run(testCase.expectedCaseID+"/"+testCase.name, func(t *testing.T) {
+			dueAt := ""
+			server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+				writer.Header().Set("Content-Type", "application/json")
+				switch request.Method {
+				case http.MethodPost:
+					writeNullableTask(writer, "original", "")
+				case http.MethodPatch:
+					var body map[string]json.RawMessage
+					if err := json.NewDecoder(request.Body).Decode(&body); err != nil {
+						t.Error(err)
+						writer.WriteHeader(http.StatusBadRequest)
+						return
+					}
+					if raw, ok := body["dueAt"]; ok {
+						dueAt = testCase.patchDueAt(dueAt, raw)
+					}
+					writeNullableTask(writer, "original", dueAt)
+				default:
+					writer.WriteHeader(http.StatusMethodNotAllowed)
+				}
+			}))
+			defer server.Close()
+
+			broken := &suite{baseURL: server.URL, client: server.Client(), task: TaskNullable}
+			assertKnownBroken(t, testCase.expectedCaseID, func() error { return testCase.check(broken) })
+		})
+	}
+}
+
+func TestKnownBrokenLockingETagBehaviorIsRejected(t *testing.T) {
+	t.Run("locking.malformed-if-match/accepts malformed tags", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
+			writer.Header().Set("Content-Type", "application/json")
+			fmt.Fprint(writer, `{"id":"00000000-0000-4000-8000-000000000001","title":"changed","createdAt":"2000-01-01T00:00:00.000000Z","version":2}`)
+		}))
+		defer server.Close()
+
+		broken := &suite{baseURL: server.URL, client: server.Client(), task: TaskLocking}
+		assertKnownBroken(t, "locking.malformed-if-match", func() error {
+			return broken.lockingMalformedIfMatch(context.Background())
+		})
+	})
+
+	t.Run("locking.stale-if-match/accepts stale tag", func(t *testing.T) {
+		version := 1
+		server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+			writer.Header().Set("Content-Type", "application/json")
+			switch request.Method {
+			case http.MethodPost:
+				writer.Header().Set("ETag", `"1"`)
+				fmt.Fprint(writer, `{"id":"00000000-0000-4000-8000-000000000001","title":"original","createdAt":"2000-01-01T00:00:00.000000Z","version":1}`)
+			case http.MethodPut:
+				version++
+				writer.Header().Set("ETag", fmt.Sprintf(`"%d"`, version))
+				fmt.Fprintf(writer, `{"id":"00000000-0000-4000-8000-000000000001","title":"changed","createdAt":"2000-01-01T00:00:00.000000Z","version":%d}`, version)
+			default:
+				writer.WriteHeader(http.StatusMethodNotAllowed)
+			}
+		}))
+		defer server.Close()
+
+		broken := &suite{baseURL: server.URL, client: server.Client(), task: TaskLocking}
+		assertKnownBroken(t, "locking.stale-if-match", func() error {
+			return broken.lockingStaleIfMatch(context.Background())
+		})
+	})
 }
 
 func TestKnownBrokenLockingTwoWinnersIsRejected(t *testing.T) {
@@ -192,9 +304,9 @@ func TestKnownBrokenLockingTwoWinnersIsRejected(t *testing.T) {
 	defer server.Close()
 
 	broken := &suite{baseURL: server.URL, client: server.Client(), task: TaskLocking}
-	if err := broken.lockingConcurrentSingleWinner(context.Background()); err == nil {
-		t.Fatal("known-broken non-atomic candidate passed locking.concurrent-single-winner")
-	}
+	assertKnownBroken(t, "locking.concurrent-single-winner", func() error {
+		return broken.lockingConcurrentSingleWinner(context.Background())
+	})
 }
 
 func TestKnownBrokenPaginationDuplicateIsRejected(t *testing.T) {
@@ -224,8 +336,68 @@ func TestKnownBrokenPaginationDuplicateIsRejected(t *testing.T) {
 		"00000000-0000-4000-8000-000000000002",
 		"00000000-0000-4000-8000-000000000003",
 	}
-	if err := checkStringIDs(got, want); err == nil {
-		t.Fatal("known-broken duplicate candidate passed pagination.multiple-pages")
+	assertKnownBroken(t, "pagination.multiple-pages", func() error { return checkStringIDs(got, want) })
+}
+
+func TestKnownBrokenPaginationOrderingTiesAndGapsAreRejected(t *testing.T) {
+	tests := []struct {
+		name           string
+		expectedCaseID string
+		pages          [][]string
+		want           []string
+	}{
+		{
+			name:           "unstable page order",
+			expectedCaseID: "pagination.multiple-pages",
+			pages:          [][]string{{"00000000-0000-4000-8000-000000000001", "00000000-0000-4000-8000-000000000002"}, {"00000000-0000-4000-8000-000000000004", "00000000-0000-4000-8000-000000000003"}},
+			want:           []string{"00000000-0000-4000-8000-000000000001", "00000000-0000-4000-8000-000000000002", "00000000-0000-4000-8000-000000000003", "00000000-0000-4000-8000-000000000004"},
+		},
+		{
+			name:           "gap between pages",
+			expectedCaseID: "pagination.multiple-pages",
+			pages:          [][]string{{"00000000-0000-4000-8000-000000000001", "00000000-0000-4000-8000-000000000002"}, {"00000000-0000-4000-8000-000000000004"}},
+			want:           []string{"00000000-0000-4000-8000-000000000001", "00000000-0000-4000-8000-000000000002", "00000000-0000-4000-8000-000000000003", "00000000-0000-4000-8000-000000000004"},
+		},
+		{
+			name:           "timestamp-only cursor skips tied row",
+			expectedCaseID: "pagination.timestamp-tie",
+			pages:          [][]string{{"00000000-0000-4000-8000-000000000001", "00000000-0000-4000-8000-000000000002"}, {"00000000-0000-4000-8000-000000000004"}},
+			want:           []string{"00000000-0000-4000-8000-000000000001", "00000000-0000-4000-8000-000000000002", "00000000-0000-4000-8000-000000000003", "00000000-0000-4000-8000-000000000004"},
+		},
+	}
+
+	for _, testCase := range tests {
+		t.Run(testCase.expectedCaseID+"/"+testCase.name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+				pageIndex := 0
+				if request.URL.Query().Get("cursor") != "" {
+					pageIndex = 1
+				}
+				writer.Header().Set("Content-Type", "application/json")
+				fmt.Fprint(writer, `{"items":[`)
+				for index, id := range testCase.pages[pageIndex] {
+					if index > 0 {
+						fmt.Fprint(writer, ",")
+					}
+					fmt.Fprint(writer, paginationTaskJSON(id))
+				}
+				if pageIndex == 0 {
+					fmt.Fprint(writer, `],"nextCursor":"next"}`)
+				} else {
+					fmt.Fprint(writer, `]}`)
+				}
+			}))
+			defer server.Close()
+
+			broken := &suite{baseURL: server.URL, client: server.Client(), task: TaskPagination}
+			got, err := broken.collectPages(context.Background(), 2)
+			if err != nil {
+				t.Fatal(err)
+			}
+			assertKnownBroken(t, testCase.expectedCaseID, func() error {
+				return checkStringIDs(got, testCase.want)
+			})
+		})
 	}
 }
 
