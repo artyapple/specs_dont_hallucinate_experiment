@@ -1,6 +1,6 @@
 # Independent OCI Validation Protocol
 
-Status: prepared draft. Execute on a separately rented clean `linux/amd64` server during Roadmap Task 6. This protocol does not authorize pilots or measured runs.
+Status: executed successfully on 2026-08-19 for source revision `14b8e64d8ff9114c710629debca810f09ca6299d`; remains draft policy until the global freeze. This protocol does not authorize pilots or measured runs.
 
 ## Entry Gate
 
@@ -50,7 +50,7 @@ The command must fail unless:
 - the evaluator image has no provider credential, runs as uid 10001, enforces offline Go modules, uses the pinned Ryuk digest, and passes all canonical image evaluations;
 - the imported coordinator reaches OpenRouter through the fixed-destination relay but cannot reach non-provider HTTPS, plain HTTP, or OpenRouter by a direct-address bypass, while the imported tool cannot reach the relay.
 
-The Docker network tests prove the credential-free tool boundary, internal-only tool network, and domain-level coordinator filtering. The positive coordinator check is an unauthenticated OpenRouter HTTPS request, not a model request. `networkPolicyEnforcementStatus` remains `unvalidated` until this exact protocol passes with the imported freeze-candidate images on the separate clean machine.
+The Docker network tests prove the credential-free tool boundary, internal-only tool network, and domain-level coordinator filtering. The positive coordinator check is an unauthenticated OpenRouter HTTPS request, not a model request. This exact protocol passed with imported freeze-candidate images on the separate clean machine, so `networkPolicyEnforcementStatus` is `validated` while the overall experiment remains `draft`.
 
 ## Evidence
 

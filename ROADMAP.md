@@ -66,18 +66,18 @@ Evidence (2026-08-18): `harness/freezecheck/` implements deterministic draft/fro
 
 ### 6. Independent OCI Validation
 
-- [ ] Owner manually rents a disposable clean `linux/amd64` server only after the final archives and checksums are ready.
-- [ ] Record the provider, region, host identity, OS, architecture, CPU, memory, disk, Docker version, and validation operator; exchange only hostname, SSH user, and public-key-based access details, never passwords or private keys.
-- [ ] Preserve final OCI archives outside disposable cache.
-- [ ] Record every OCI image digest and archive SHA-256.
-- [ ] Import the exact archives on a separate clean machine.
-- [ ] Repeat bridge positive and negative checks.
-- [ ] Repeat network-policy checks.
-- [ ] Confirm provider credentials are absent from tool and evaluator environments.
-- [ ] Mark network enforcement `validated` only if the frozen validation protocol passes.
-- [ ] Copy all non-secret evidence off the server, verify it locally, and have the owner manually delete the disposable server before completing this task.
+- [x] Owner manually rents a disposable clean `linux/amd64` server only after the final archives and checksums are ready.
+- [x] Record the provider, region, host identity, OS, architecture, CPU, memory, disk, Docker version, and validation operator; exchange only hostname, SSH user, and public-key-based access details, never passwords or private keys.
+- [x] Preserve final OCI archives outside disposable cache.
+- [x] Record every OCI image digest and archive SHA-256.
+- [x] Import the exact archives on a separate clean machine.
+- [x] Repeat bridge positive and negative checks.
+- [x] Repeat network-policy checks.
+- [x] Confirm provider credentials are absent from tool and evaluator environments.
+- [x] Mark network enforcement `validated` only if the frozen validation protocol passes.
+- [x] Copy all non-secret evidence off the server, verify it locally, and have the owner manually delete the disposable server before completing this task.
 
-Preparation evidence (2026-08-18; Task remains open): `harness/restricted-egress.sh` now defines the shared dual-internal-network topology for the model-free check and the real-provider smoke. The coordinator has no direct external network; a uid-10001 repository-owned TCP relay, run from the digest-pinned Go base image, is the only container attached to external `bridge` and always forwards to exactly `openrouter.ai:443`. Local `test-coordinator-egress.sh` passes without `OPENROUTER_API_KEY` or OpenCode: positive unauthenticated OpenRouter HTTPS, negative non-provider HTTPS and plain HTTP, direct-address bypass, redirect escape, tool-to-relay isolation, internal bridge reachability, exact network membership, and relay credential absence. `validate-oci-bundle.sh` will rerun this check against the imported coordinator/tool and records it separately. This is orchestration-only and does not change any custom image build input. Local evidence does not complete Task 6 or change `networkPolicyEnforcementStatus`; exact archives, clean-machine validation, evidence retrieval, and manual VM deletion are still required.
+Evidence (2026-08-19): source revision `14b8e64d8ff9114c710629debca810f09ca6299d` produced two external freeze-candidate bundles under `../task6-oci-freeze-candidates-14b8e64/{selected,backup}`. All four archives are byte-identical between builds and to the preceding source-only validation revisions. Selected identities: coordinator digest `sha256:2989fb2589ea24336ec3a87b7bc4f75512f098183490e5529a63118cf1b22ea4`, archive SHA-256 `25f77e4907a445dd052cbb04c192d2624d566aa71d42de6136d0c7b05c83fc09`; Direct tool digest `sha256:e9779760700ded850ce85598cdd9f394be0e5f2df318fa4e2b1ba84c3f5514ba`, archive `db8c2bc6a1acec1c18084866e212b6dbc97cd048fc62e26aa7e433698f35c885`; Codegen tool digest `sha256:14c9514bf32bbfca1c70c26b578e1ec47755b1440ee4eefb8b4d7e3cfbc50f9a`, archive `d38166c4223a75b8af0d8daf7bb2ffea8d422db804b3222355e9a4b2970ea7bb`; evaluator digest `sha256:5c41f1c255669828e6a62ae723f154391590d716007259378487dfc451e94885`, archive `629f8f6da5cb448233e5cd878e54255914d7fdfb5f12ec6bd9cd3a7b56ebf157`. The exact selected bundle and clean Git bundle were transferred by public-key SSH to a disposable Hetzner `nbg1` Ubuntu 24.04.4 `linux/amd64` VM (`ubuntu-16gb-nbg1-2`, 8 vCPU, 15 GiB RAM, 301 GB disk, Docker 29.7.2); no password, private-key content, or provider credential was transferred. Final `validate-oci-bundle.sh` evidence at external local path `../task6-oci-freeze-candidates-14b8e64/evidence-final/` records status `passed` for exact archive import, all credential checks, digest-pinned Ryuk, Direct and Codegen bridge checks, Direct and Codegen network checks, restricted coordinator egress, and all evaluator image scenarios. Generated evidence checksums pass locally and credential/private-key marker scans are empty. Earlier failed validation attempts and their checksummed evidence remain preserved separately; they exposed and corrected exact-import, network-dependent diagnostic, and Linux portability defects without changing image bytes. The owner confirmed manual server deletion after evidence retrieval. `networkPolicyEnforcementStatus` is now `validated`; experiment status remains `draft`, and no agent, pilot, or measured run occurred.
 
 ## Experiment Execution And Publication
 

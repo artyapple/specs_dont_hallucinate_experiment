@@ -32,10 +32,10 @@
     "pgx": "v5.10.0",
     "testcontainersGo": "v0.44.0",
     "zod": "4.1.8",
-    "coordinatorImage": "TODO_PIN_DIGEST",
-    "toolDirectImage": "TODO_PIN_DIGEST",
-    "toolCodegenImage": "TODO_PIN_DIGEST",
-    "evaluatorImage": "TODO_PIN_DIGEST"
+    "coordinatorImage": "sha256:2989fb2589ea24336ec3a87b7bc4f75512f098183490e5529a63118cf1b22ea4",
+    "toolDirectImage": "sha256:e9779760700ded850ce85598cdd9f394be0e5f2df318fa4e2b1ba84c3f5514ba",
+    "toolCodegenImage": "sha256:14c9514bf32bbfca1c70c26b578e1ec47755b1440ee4eefb8b4d7e3cfbc50f9a",
+    "evaluatorImage": "sha256:5c41f1c255669828e6a62ae723f154391590d716007259378487dfc451e94885"
   },
   "verificationSources": {
     "opencode": "https://github.com/anomalyco/opencode/releases/tag/v1.18.18",

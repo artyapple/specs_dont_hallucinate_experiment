@@ -22,9 +22,9 @@ Task content hashes are lowercase SHA-256 of raw file bytes. Their key-to-path m
 | Failure, protocol, evaluator, run-result, and metric-extraction policies | Harness and evaluator owners | `make validate-config`, `make test-evaluator`, `make test-runresult`, and independent document review after pilots | Tasks 11 and 12 |
 | Analysis rules and optional review protocol | Analysis and review owners | Commands remain owned by Tasks 15 and optional review preparation; Task 12 must not freeze until their pre-measurement implementations pass | Tasks 12 and 15 |
 
-The committed `config/schedule.json` remains an empty draft with `TODO_FREEZE_BEFORE_MEASURED_RUNS` until Task 12. `networkPolicyEnforcementStatus` remains `unvalidated` until Task 6 succeeds on a separate clean machine.
+The committed `config/schedule.json` remains an empty draft with `TODO_FREEZE_BEFORE_MEASURED_RUNS` until Task 12. `networkPolicyEnforcementStatus` is `validated` by the completed Task 6 separate-clean-machine evidence.
 
-The Task 6 server is rented only after a clean source revision produces the final external OCI bundle. Access handoff contains hostname, SSH user, public-key method, and non-secret machine metadata only. After validation, evidence is copied back and verified before the disposable server is deleted.
+Task 6 followed the required order: a clean source revision produced the external selected bundle and backup; access handoff contained only hostname, SSH user, public-key method, and non-secret machine metadata; evidence was copied back and verified before the owner manually deleted the disposable server.
 
 ## Definition Of Ready
 

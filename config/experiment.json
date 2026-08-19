@@ -19,10 +19,10 @@
     "evaluatorRevision": "TODO_GIT_COMMIT",
     "resultSchemaRevision": "TODO_GIT_COMMIT",
     "environmentImages": {
-      "coordinator": "TODO_PIN_DIGEST",
-      "toolDirect": "TODO_PIN_DIGEST",
-      "toolCodegen": "TODO_PIN_DIGEST",
-      "evaluator": "TODO_PIN_DIGEST"
+      "coordinator": "sha256:2989fb2589ea24336ec3a87b7bc4f75512f098183490e5529a63118cf1b22ea4",
+      "toolDirect": "sha256:e9779760700ded850ce85598cdd9f394be0e5f2df318fa4e2b1ba84c3f5514ba",
+      "toolCodegen": "sha256:14c9514bf32bbfca1c70c26b578e1ec47755b1440ee4eefb8b4d7e3cfbc50f9a",
+      "evaluator": "sha256:5c41f1c255669828e6a62ae723f154391590d716007259378487dfc451e94885"
     },
     "scheduleManifest": "config/schedule.json",
     "fixtures": {
@@ -51,7 +51,7 @@
     "timeoutSeconds": 2700,
     "maxConcurrency": 2,
     "networkPolicy": "model-provider-only",
-    "networkPolicyEnforcementStatus": "unvalidated",
+    "networkPolicyEnforcementStatus": "validated",
     "humanAssistance": false,
     "hiddenFeedbackRounds": 0,
     "schedule": "blocked-randomized",
