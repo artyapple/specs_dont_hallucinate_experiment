@@ -114,6 +114,8 @@ Evidence: TODO
 
 ### 10. Fourteen Unmeasured Pilots
 
+- [ ] Owner manually rents a dedicated `linux/amd64` execution server only after real orchestration and all pre-pilot checks are ready; do not implement cloud provisioning.
+- [ ] Record provider, region, host identity, OS, architecture, CPU, memory, disk, Docker version, and pilot operator without committing transient SSH access details.
 - [ ] Run exactly one unmeasured pilot for each of the 14 experiment cells.
 - [ ] Keep pilot artifacts separate from measured results.
 - [ ] Verify prompts, timeouts, tool isolation, caches, evaluator applicability, and cleanup.
@@ -137,6 +139,7 @@ Evidence: TODO
 - [ ] Freeze OCI image digests and archive hashes.
 - [ ] Freeze the randomized schedule and seed.
 - [ ] Freeze failure, exclusion, replacement, and metric extraction rules.
+- [ ] Freeze the execution-host specification and record the measured-run host identity before measured execution.
 - [ ] Change experiment status from `draft` to `frozen` only after all prerequisites pass.
 
 Evidence: TODO
@@ -147,6 +150,7 @@ Evidence: TODO
 - [ ] Complete 10 Greenfield measured runs.
 - [ ] Complete 60 Part 2 measured runs.
 - [ ] Preserve all run artifacts and allow at most two concurrent runs.
+- [ ] Use the frozen execution host for all measured runs; any host replacement must follow the frozen infrastructure-failure policy and preserve evidence.
 - [ ] Never provide hidden evaluator feedback to an agent.
 
 Evidence: TODO
@@ -179,6 +183,7 @@ Evidence: TODO
 - [ ] Publish fixtures, tasks, treatments, harness, evaluator, schemas, and analysis code.
 - [ ] Publish cleaned transcripts, final patches, machine-readable results, and infrastructure failures.
 - [ ] Verify that no credentials or sensitive local artifacts are present.
+- [ ] Copy and verify all execution artifacts off the server, then have the owner manually delete the execution server.
 - [ ] Run optional human review only after automated evaluation is complete.
 
 Evidence: TODO
