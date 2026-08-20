@@ -33,9 +33,10 @@ if test "${1:-}" = --cleanup; then
   cleanup
   exit 0
 fi
+readonly MODEL_FREE_PROBE="${1:-}"
+test -z "$MODEL_FREE_PROBE" || test "$MODEL_FREE_PROBE" = --model-free-probe || exit 71
 
 : "${CANDIDATE_WORKSPACE:?}"
-: "${CANDIDATE_PROMPT_FILE:?}"
 : "${CANDIDATE_TRANSCRIPT:?}"
 : "${CANDIDATE_STDERR:?}"
 : "${COORDINATOR_IMAGE:?}"
@@ -44,7 +45,12 @@ fi
 : "${POSTGRES_IMAGE:?}"
 : "${OPENCODE_MODEL:?}"
 : "${OPENCODE_CONFIG_CONTENT:?}"
-: "${OPENROUTER_API_KEY:?}"
+if test "$MODEL_FREE_PROBE" != --model-free-probe; then
+  : "${CANDIDATE_PROMPT_FILE:?}"
+  : "${OPENROUTER_API_KEY:?}"
+else
+  test -z "${OPENROUTER_API_KEY+x}" || exit 71
+fi
 exec 2>>"$CANDIDATE_STDERR"
 test "${CANDIDATE_TIMEOUT_SECONDS:?}" = 2700
 [[ "$COORDINATOR_IMAGE" =~ ^sha256:[0-9a-f]{64}$ ]] || exit 71
@@ -107,7 +113,7 @@ docker run -d \
   --network-alias tool \
   --read-only \
   --tmpfs /tmp:rw,exec,nosuid,nodev,uid=10001,gid=10001 \
-  --tmpfs /home/candidate/.cache/go-build:rw,nosuid,nodev,uid=10001,gid=10001 \
+  --tmpfs /home/candidate/.cache/go-build:rw,exec,nosuid,nodev,uid=10001,gid=10001 \
   --user 10001:10001 \
   --cap-drop ALL \
   --security-opt no-new-privileges \
@@ -128,6 +134,34 @@ for _ in $(seq 1 30); do
   sleep 1
 done
 test "$healthy" = true || exit 71
+
+if test "$MODEL_FREE_PROBE" = --model-free-probe; then
+  probe_config="$(jq -c '.agent.experiment.permission.bridge_test_bash = "allow"' <<<"$OPENCODE_CONFIG_CONTENT")"
+  probe_command='set -eu; test -z "${OPENROUTER_API_KEY+x}"; ! tr "\0" "\n" </proc/1/environ | grep -q "^OPENROUTER_API_KEY="; go mod verify; go test ./...; make build; make migrate; printf "production-lifecycle-probe=passed\n" > /workspace/production-lifecycle-probe.txt'
+  probe_params="$(jq -nc --arg command "$probe_command" --arg workdir /workspace '{command:$command,workdir:$workdir}')"
+  env -u OPENROUTER_API_KEY docker run --rm \
+    --name "$COORDINATOR" \
+    --label "$LABEL_RUN" \
+    --label "$LABEL_INSTANCE" \
+    --hostname coordinator \
+    --network "$TOOL_NETWORK" \
+    --read-only \
+    --tmpfs /tmp:rw,exec,nosuid,nodev,uid=10001,gid=10001 \
+    --user 10001:10001 \
+    --cap-drop ALL \
+    --security-opt no-new-privileges \
+    -v "$CANDIDATE_WORKSPACE:/workspace:ro" \
+    -e OPENCODE_MODEL \
+    -e OPENCODE_CONFIG_CONTENT="$probe_config" \
+    -e TOOL_BRIDGE_URL=http://tool:4096 \
+    -e TOOL_BRIDGE_TEST_ALIASES=1 \
+    -e XDG_DATA_HOME=/tmp/opencode-data \
+    -e XDG_CACHE_HOME=/tmp/opencode-cache \
+    -e XDG_STATE_HOME=/tmp/opencode-state \
+    "$COORDINATOR_IMAGE" debug agent experiment --tool bridge_test_bash --params "$probe_params" \
+    >"$CANDIDATE_TRANSCRIPT" || exit 71
+  exit 0
+fi
 
 docker create \
   --name "$COORDINATOR" \

@@ -43,6 +43,18 @@ restricted_egress_start() {
     --entrypoint /usr/local/go/bin/go \
     "$EGRESS_PROXY_IMAGE" run . -listen 0.0.0.0:443 -health 0.0.0.0:8080 -upstream openrouter.ai:443 >/dev/null
   docker network connect --gw-priority 1 bridge "$EGRESS_PROXY"
+  local healthy=false
+  for _ in $(seq 1 60); do
+    if docker exec "$EGRESS_PROXY" bash -c \
+      'exec 3<>/dev/tcp/127.0.0.1/8080; printf "GET /healthz HTTP/1.0\r\n\r\n" >&3; grep -q "200 OK" <&3' \
+      >/dev/null 2>&1; then
+      healthy=true
+      break
+    fi
+    test "$(docker inspect --format '{{.State.Running}}' "$EGRESS_PROXY" 2>/dev/null || true)" = true || break
+    sleep 1
+  done
+  test "$healthy" = true || { printf 'egress proxy did not become healthy\n' >&2; return 1; }
   EGRESS_PROXY_IP="$(docker inspect --format "{{with index .NetworkSettings.Networks \"$PROVIDER_NETWORK\"}}{{.IPAddress}}{{end}}" "$EGRESS_PROXY")"
   test -n "$EGRESS_PROXY_IP"
   export EGRESS_PROXY_IP

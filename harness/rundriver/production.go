@@ -23,6 +23,7 @@ import (
 const (
 	productionTimeout     = 2700
 	productionConcurrency = 2
+	productionSetupGrace  = 5 * time.Minute
 )
 
 type productionOptions struct {
@@ -256,7 +257,7 @@ func runProduction(ctx context.Context, opts productionOptions) error {
 		"EVALUATOR_IMAGE="+resolved.EvaluatorImage, "POSTGRES_IMAGE="+resolved.PostgresImage,
 		"OPENCODE_MODEL="+resolved.Model, "OPENCODE_CONFIG_CONTENT="+compactConfig.String(),
 		fmt.Sprintf("CANDIDATE_TIMEOUT_SECONDS=%d", resolved.TimeoutSeconds))
-	candidateContext, cancelCandidate := context.WithTimeout(ctx, time.Duration(resolved.TimeoutSeconds)*time.Second)
+	candidateContext, cancelCandidate := context.WithTimeout(ctx, time.Duration(resolved.TimeoutSeconds)*time.Second+productionSetupGrace)
 	exitCode, candidateSignal, runErr := runCandidate(candidateContext, command)
 	deadlineExceeded := candidateContext.Err() == context.DeadlineExceeded
 	cancelCandidate()

@@ -369,14 +369,23 @@ func TestProductionShellContracts(t *testing.T) {
 		t.Fatal(err)
 	}
 	text := string(candidate)
-	for _, required := range []string{"--init", "--user 10001:10001", "OPENROUTER_API_KEY", "--add-host \"openrouter.ai:$EGRESS_PROXY_IP\"", "experiment.run-id", "experiment.instance-id", "CANDIDATE_TIMEOUT_SECONDS", "DATABASE_URL=postgres://", "--tmpfs /var/lib/postgresql:rw,nosuid,nodev", "$MODULE_CACHE:/go/pkg/mod:ro", "pg_isready"} {
+	for _, required := range []string{"--init", "--user 10001:10001", "OPENROUTER_API_KEY", "--add-host \"openrouter.ai:$EGRESS_PROXY_IP\"", "experiment.run-id", "experiment.instance-id", "CANDIDATE_TIMEOUT_SECONDS", "DATABASE_URL=postgres://", "--tmpfs /var/lib/postgresql:rw,nosuid,nodev", "--tmpfs /home/candidate/.cache/go-build:rw,exec,nosuid,nodev", "$MODULE_CACHE:/go/pkg/mod:ro", "pg_isready"} {
 		if !strings.Contains(text, required) {
 			t.Errorf("candidate runner lacks %q", required)
 		}
 	}
-	toolBlock := text[strings.Index(text, "docker run -d"):strings.Index(text, "docker create")]
+	toolBlock := text[strings.Index(text, "docker run -d"):strings.Index(text, "healthy=false")]
 	if strings.Contains(toolBlock, "OPENROUTER_API_KEY") || strings.Contains(toolBlock, "openrouter.ai") {
 		t.Fatal("tool command contains provider credential or host mapping")
+	}
+	evaluator, err := os.ReadFile(filepath.Join("..", "run-evaluator-container.sh"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, required := range []string{"uname -s", "Darwin) socket_gid=0", "Linux) socket_gid=\"$(stat -c '%g'"} {
+		if !strings.Contains(string(evaluator), required) {
+			t.Errorf("evaluator runner lacks %q", required)
+		}
 	}
 }
 

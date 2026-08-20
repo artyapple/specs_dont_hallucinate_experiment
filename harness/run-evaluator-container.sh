@@ -27,7 +27,11 @@ for ((i=0; i<${#args[@]}; i++)); do
 done
 test -n "$candidate" || { printf '%s\n' '-candidate is required' >&2; exit 2; }
 candidate="$(cd "$candidate" && pwd)"
-socket_gid="$(stat -f '%g' /var/run/docker.sock 2>/dev/null || stat -c '%g' /var/run/docker.sock)"
+case "$(uname -s)" in
+  Darwin) socket_gid=0 ;;
+  Linux) socket_gid="$(stat -c '%g' /var/run/docker.sock)" ;;
+  *) printf 'unsupported evaluator host OS\n' >&2; exit 2 ;;
+esac
 
 env -u OPENROUTER_API_KEY docker run --rm \
   --name "$CONTAINER" \
