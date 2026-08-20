@@ -16,10 +16,17 @@ restricted_egress_names() {
 
 restricted_egress_start() {
   test -n "${TOOL_NETWORK:-}" && test -n "${PROVIDER_NETWORK:-}" && test -n "${EGRESS_PROXY:-}"
-  docker network create --internal "$TOOL_NETWORK" >/dev/null
-  docker network create --internal "$PROVIDER_NETWORK" >/dev/null
+  local network_args=(--internal)
+  local relay_args=(--name "$EGRESS_PROXY")
+  local label
+  for label in "$@"; do
+    network_args+=(--label "$label")
+    relay_args+=(--label "$label")
+  done
+  docker network create "${network_args[@]}" "$TOOL_NETWORK" >/dev/null
+  docker network create "${network_args[@]}" "$PROVIDER_NETWORK" >/dev/null
   docker run -d \
-    --name "$EGRESS_PROXY" \
+    "${relay_args[@]}" \
     --hostname egress-proxy \
     --network "$PROVIDER_NETWORK" \
     --network-alias egress-proxy \
@@ -44,4 +51,25 @@ restricted_egress_start() {
 restricted_egress_stop() {
   docker rm -f "${EGRESS_PROXY:-}" >/dev/null 2>&1 || true
   docker network rm "${PROVIDER_NETWORK:-}" "${TOOL_NETWORK:-}" >/dev/null 2>&1 || true
+}
+
+restricted_egress_stop_labels() {
+  local run_id="$1"
+  local instance_id="$2"
+  local ids
+  ids="$(docker ps -aq --filter "label=experiment.run-id=$run_id" --filter "label=experiment.instance-id=$instance_id" 2>/dev/null || true)"
+  if test -n "$ids"; then
+    # shellcheck disable=SC2086
+    docker rm -f $ids >/dev/null 2>&1 || true
+  fi
+  ids="$(docker network ls -q --filter "label=experiment.run-id=$run_id" --filter "label=experiment.instance-id=$instance_id" 2>/dev/null || true)"
+  if test -n "$ids"; then
+    # shellcheck disable=SC2086
+    docker network rm $ids >/dev/null 2>&1 || true
+  fi
+  ids="$(docker volume ls -q --filter "label=experiment.run-id=$run_id" --filter "label=experiment.instance-id=$instance_id" 2>/dev/null || true)"
+  if test -n "$ids"; then
+    # shellcheck disable=SC2086
+    docker volume rm -f $ids >/dev/null 2>&1 || true
+  fi
 }

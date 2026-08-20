@@ -4,10 +4,10 @@ The harness creates isolated agent runs and preserves all artifacts required for
 
 ## Run Lifecycle
 
-1. Resolve the frozen cell, fixture revision, treatment overlay, task revision, and environment image.
+1. Resolve the scheduled cell and repeat, then resolve the fixture, treatment prompt, task, model, and immutable images from `config/experiment.json`.
 2. Create a clean isolated workspace and container namespace.
-3. Apply the treatment overlay and, for propagation-only cells, the frozen target patch.
-4. Start a fresh OpenCode session with the frozen task text.
+3. For propagation-only cells, verify and apply the frozen target patch, verify every target hash, and snapshot that patched starting workspace.
+4. Start a fresh OpenCode session with the treatment Markdown deterministically prepended to the task Markdown. Treatment text is agent-visible prompt context, not a filesystem overlay.
 5. Allow only read, edit, and bash capabilities.
 6. Stop on final response or after 45 minutes.
 7. Preserve transcript, tool events, timestamps, usage, final workspace, and patch.
@@ -107,6 +107,24 @@ make validate-schedule PHASE=measured SCHEDULE=<path>
 - Frozen infrastructure-failure rules determine replacement eligibility.
 - Replaced artifacts remain preserved and published.
 
+## Production Driver
+
+`bin/rundriver production` is the real orchestration entry point. It requires `-phase`, `-schedule`, `-run-dir`, and `-run-id`; `cellId` and `repeatIndex` come only from the matching schedule entry. Fixture, prompt sources, model, agent version, exact 2,700-second timeout, concurrency limit 2, and coordinator/tool/evaluator SHA-256 image identities come only from `config/experiment.json`; the pinned PostgreSQL identity comes from `config/versions.json`.
+
+```text
+bin/rundriver production -root . -phase pilot -schedule <pilot-schedule.json> -run-dir <new-run-dir> -run-id <scheduled-run-id>
+```
+
+Resolution is fixed: Greenfield uses `fixtures/base1`; existing Direct uses `fixtures/base2-direct`; existing Codegen uses `fixtures/base2-codegen`; full tasks use `tasks/full/<task>.md`; propagation tasks use `tasks/propagation/<task>.md`; treatments use `treatments/<treatment>/overlay.md`. Greenfield Codegen additionally receives `treatments/codegen/workspace/`, which contains only the pinned module graph, generator configurations, and canonical generation commands. It contains no generated outputs or service implementation.
+
+The driver refuses an existing run directory, acquires one of two cross-process `flock` slots, and creates a unique instance label in addition to the scheduled run label. `run-candidate.sh` starts a clean pinned PostgreSQL sidecar on the internal tool network and prepares a read-only module-cache volume offline from the validated evaluator image. It places the UID 10001 tool on that network with the only writable workspace mount, `DATABASE_URL`, `--init`, a read-only root, no provider credential, and no Docker socket. The read-only coordinator joins the internal tool and provider networks, receives `OPENROUTER_API_KEY` by environment name only, uses the exact configured model and OpenCode config, and maps `openrouter.ai` to the fixed relay. Every created container, network, and volume carries both labels. Cleanup selects both labels and is idempotent on normal exit, failure, timeout, and signal.
+
+Candidate runner exits are `0` submitted, `124` timed out, `70` coordinator failure, and `71` tool/container-runtime failure. Submitted and timed-out workspaces are evaluated once. Coordinator and tool/runtime failures are recorded as `harness-failure` or `infrastructure-failure`; assembly still runs once but skips the evaluator. Signals interrupt the candidate runner, preserve artifacts, produce failure metadata/result when assembly remains possible, and return nonzero. The O_EXCL `.finalization-started` marker makes an interrupted or ambiguous run ineligible for a second evaluator invocation.
+
+Production artifacts include `prompt.md`, `workspace/`, `transcript.jsonl`, `candidate-stderr.log`, `final.patch`, `metadata.json`, the finalization marker, and assembler outputs. `final.patch` is a binary-capable no-index diff against a temporary patched starting snapshot, so ignored/generated files and executable mode changes are included. Production metadata records schedule identity, model, agent version, resolved sources, immutable images, timeout, both resource labels, and candidate exit/signal; these fields are intentionally not added to `run-result.json`.
+
+`run-evaluator-container.sh` resolves the evaluator digest from config unless the production driver supplies its already-resolved value. It mounts the candidate read-only and the Docker socket, retains the image user, adds only the socket group, receives no provider credential, labels the evaluator container, and forwards evaluator stdout and exit status unchanged. Signal and assembly-deadline cleanup gracefully stop that labelled container so the evaluator can remove its Testcontainers children. The driver always passes the immutable Codegen tool digest to `runresult -codegen-image`.
+
 ## Run Result Assembly
 
 `bin/runresult` (source `runresult/`, built by `make build-runresult`) converts a preserved run directory into a validated `run-result.json`. It is the only component that merges hidden evaluator output into the complete run result. Run drivers invoke it after final submission or timeout; it never feeds information back to the agent.
@@ -159,5 +177,5 @@ The driver refuses to overwrite a run directory, rejects symlinks, special files
 ## Remaining Work
 
 - Publish or reproducibly export the custom images and replace local image IDs with distributable digests.
-- Extend the synthetic finalization boundary with real OpenCode/container execution before pilots; Task 7 intentionally does not implement measured-run orchestration.
 - Implement transcript secret scrubbing.
+- Run all 14 unmeasured pilots and complete post-pilot revalidation before the global freeze.

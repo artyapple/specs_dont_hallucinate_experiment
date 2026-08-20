@@ -1,4 +1,4 @@
-.PHONY: build-analysis-input build-evaluator build-evaluator-image build-freezecheck build-rundriver build-runresult evaluate-bases evaluate-base2-codegen evaluate-base2-direct evaluate-task-solutions export-oci generate-schedule prepare-oci-bundle test-analysis-input test-base1-skeleton test-base2-codegen test-base2-direct test-coordinator-egress test-egressproxy test-evaluator test-evaluator-image test-freezecheck test-nullable-compatibility test-rundriver test-runresult test-runresult-integration test-task7-dry-run validate-analysis-input validate-config validate-formal validate-oci-bundle validate-results validate-run validate-schedule validate-task-targets verify-task-solutions
+.PHONY: build-analysis-input build-evaluator build-evaluator-image build-freezecheck build-rundriver build-runresult evaluate-bases evaluate-base2-codegen evaluate-base2-direct evaluate-task-solutions export-oci generate-schedule prepare-oci-bundle test-analysis-input test-base1-skeleton test-base2-codegen test-base2-direct test-coordinator-egress test-egressproxy test-evaluator test-evaluator-image test-freezecheck test-greenfield-codegen-overlay test-nullable-compatibility test-production-rundriver test-rundriver test-runresult test-runresult-integration test-task7-dry-run validate-analysis-input validate-config validate-formal validate-oci-bundle validate-results validate-run validate-schedule validate-task-targets verify-task-solutions
 
 build-evaluator:
 	mkdir -p bin
@@ -74,8 +74,15 @@ test-runresult:
 test-runresult-integration: build-evaluator build-runresult
 	./harness/test-runresult-integration.sh
 
-test-rundriver:
+test-production-rundriver:
 	cd harness/rundriver && go test ./...
+	cd treatments/codegen/workspace && go mod verify
+	bash -n harness/restricted-egress.sh harness/smoke-openrouter.sh harness/run-candidate.sh harness/run-evaluator-container.sh treatments/codegen/workspace/scripts/generate.sh treatments/codegen/workspace/scripts/verify-generate.sh
+
+test-rundriver: test-production-rundriver
+
+test-greenfield-codegen-overlay:
+	bash ./harness/test-greenfield-codegen-overlay.sh
 
 test-analysis-input:
 	cd analysis/input && go test ./...

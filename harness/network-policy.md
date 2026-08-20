@@ -1,8 +1,8 @@
 # Network and Credential Policy
 
-Status: draft. This policy must be implemented and negatively tested before pilots.
+Status: validated in development and implemented by the production orchestration. Exact freeze-image validation remains governed by the global freeze.
 
-Development evidence as of August 18, 2026: `test-network-policy.sh` passes against both locally built Direct and Codegen tool images, `test-tool-bridge.sh` passes against the coordinator and Direct tool image, and model-free `test-coordinator-egress.sh` passes with no provider credential. The checks prove internal PostgreSQL reachability; blocked external DNS, HTTPS, `wget`, Go proxy access, subprocess access, and redirect escape; absence of provider credentials from tool environment and process arguments; absence of the Docker socket; non-root execution; read-only system paths; exact Go `1.26.6`; remote native-tool execution; workspace path confinement; command termination on timeout/abort; exact coordinator network membership; positive unauthenticated OpenRouter HTTPS reachability; blocked non-provider, plain-HTTP, direct-bypass, and redirect traffic; and absence of the provider relay from the tool network. This is not freeze validation because the custom images do not yet have final transferred archive identities and the same checks have not passed on the clean machine.
+The model-free bridge, Direct and Codegen network-policy, and coordinator-egress checks passed again against the exact imported OCI archives on the Task 6 clean machine. That evidence validates internal PostgreSQL reachability; blocked external DNS, HTTPS, package access, subprocess access, redirects, and direct-address bypass; credential and Docker-socket absence from the tool; non-root/read-only execution; remote native-tool confinement and cancellation; exact network membership; and the fixed-destination provider relay. The experiment and policy documents remain draft until the global freeze, but network enforcement status is `validated`.
 
 ## Threat Model
 
@@ -24,11 +24,11 @@ Candidate-controlled bash commands must not be able to:
 - The tool container receives no model-provider credentials.
 - The tool container has no Docker socket.
 - The tool container has default-deny external egress.
-- Visible PostgreSQL is a harness-managed sidecar on an isolated internal network.
+- Candidate orchestration starts a clean pinned visible PostgreSQL sidecar on the internal tool network and passes only its `DATABASE_URL` to the tool.
 - Dependency caches are prepared before runs and mounted read-only.
 - Hidden evaluator containers use a separate network and are never visible during the agent session.
 
-`restricted-egress.sh` owns this topology and is shared by the model-free test and `smoke-openrouter.sh`. The relay is a standard-library Go program under `egressproxy/`, run as uid 10001 from the digest-pinned Go base image with a read-only root and no provider credential. Only the coordinator maps `openrouter.ai` to the relay; both coordinator networks are Docker-internal, so direct destination-IP bypass has no external route. This does not depend on application proxy support.
+`restricted-egress.sh` owns this topology and is shared by the model-free test, `smoke-openrouter.sh`, and production `run-candidate.sh`. Production gives both internal networks, every container, and its read-only module-cache volume the scheduled run label plus a unique instance label; cleanup filters on both labels. The cache is populated offline from the validated evaluator image before the tool starts. The relay is a standard-library Go program under `egressproxy/`, run as uid 10001 from the digest-pinned Go base image with a read-only root and no provider credential. Only the coordinator maps `openrouter.ai` to the relay; both coordinator networks are Docker-internal, so direct destination-IP bypass has no external route. This does not depend on application proxy support.
 
 ## Required Negative Tests
 

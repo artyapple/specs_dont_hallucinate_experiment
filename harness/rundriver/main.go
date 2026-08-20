@@ -1,6 +1,5 @@
-// Command rundriver finalizes synthetic runs without invoking OpenCode or a
-// model provider. It creates an isolated workspace, writes driver-owned
-// artifacts, and delegates all result derivation to bin/runresult.
+// Command rundriver preserves the original synthetic finalization CLI and adds
+// the explicit production subcommand for containerized candidate execution.
 package main
 
 import (
@@ -56,6 +55,12 @@ type infrastructureNote struct {
 }
 
 func main() {
+	if len(os.Args) > 1 && os.Args[1] == "production" {
+		if err := productionMain(os.Args[2:]); err != nil {
+			fail(err.Error())
+		}
+		return
+	}
 	var opts options
 	flag.StringVar(&opts.root, "root", ".", "experiment repository root")
 	flag.StringVar(&opts.runDir, "run-dir", "", "new run artifact directory")

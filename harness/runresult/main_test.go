@@ -40,6 +40,26 @@ func TestReadMetadataValid(t *testing.T) {
 	}
 }
 
+func TestReadMetadataAcceptsStrictProductionOrchestration(t *testing.T) {
+	content := strings.TrimSuffix(validMetadataJSON(), "}") + `,
+  "orchestration": {
+    "schedulePath": "/schedule.json", "scheduleOrdinal": 1, "scheduleRunId": "run-1",
+    "model": "openrouter/model", "agentVersion": "1.18.18",
+    "resolvedSources": {"fixture": "fixtures/base1"},
+    "images": {"coordinator": "sha256:abc"}, "timeoutSeconds": 2700,
+    "resourceLabels": {"experiment.run-id": "run-1"}, "candidateExitCode": 0
+  }
+}`
+	metadata, err := readMetadata(writeMetadata(t, content))
+	if err != nil || metadata.Orchestration == nil || metadata.Orchestration.TimeoutSeconds != 2700 {
+		t.Fatalf("metadata = %+v, %v", metadata, err)
+	}
+	bad := strings.Replace(content, `"candidateExitCode": 0`, `"candidateExitCode": 0, "unknown": true`, 1)
+	if _, err := readMetadata(writeMetadata(t, bad)); err == nil {
+		t.Fatal("unknown production orchestration field must be rejected")
+	}
+}
+
 func TestReadMetadataRejectsBadInput(t *testing.T) {
 	cases := map[string]string{
 		"missing cell":  `{"runId":"r","repeatIndex":1,"phase":"pilot","status":"submitted","startedAt":"2026-08-17T10:00:00Z","finishedAt":"2026-08-17T10:10:00Z"}`,

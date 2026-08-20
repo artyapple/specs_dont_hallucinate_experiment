@@ -6,7 +6,7 @@ This repository will host the reproducible experiment for the talk `Specs Don't 
 
 Development infrastructure only. It is not ready for pilots or measured runs.
 
-Version selection, nullable-generation compatibility, the isolated tool bridge, a real-provider smoke, reproducible OCI exports with independent clean-machine validation, baseline formal inputs, the Base 1 infrastructure skeleton, both canonical Base 2 services, the external evaluator, freeze/schedule semantic tooling, and synthetic end-to-end run finalization are implemented. Both Base 2 variants and all six draft canonical task references pass the applicable evaluator cases. The Base 1 Task API is intentionally absent; independent review of task references, real agent orchestration, pilots, and the global freeze remain open.
+Version selection, nullable-generation compatibility, the isolated tool bridge, a real-provider smoke, reproducible OCI exports with independent clean-machine validation, baseline formal inputs, the Base 1 infrastructure skeleton, both canonical Base 2 services, the external evaluator, freeze/schedule semantic tooling, synthetic finalization, and production container orchestration are implemented. Both Base 2 variants and all six draft canonical task references pass the applicable evaluator cases. The Base 1 Task API is intentionally absent; its Codegen treatment setup is supplied by the repository-owned workspace overlay. Pilots and the global freeze remain open.
 
 The authoritative design decisions live in `../experiment-decisions.md`. `config/design-revision.json` is the repository-owned content-addressed link to the current design revision; Task 12 updates its hash and records the clean freeze-input commit before changing the experiment status.
 
@@ -57,6 +57,7 @@ make validate-schedule PHASE=measured SCHEDULE=<path>
 make validate-run RUN_DIR=<path> SCHEDULE=<path>
 make validate-results RESULTS_DIR=<path> SCHEDULE=<path>
 make test-task7-dry-run
+make test-production-rundriver
 make validate-analysis-input RESULTS_DIR=<path> OUTPUT=<path>
 make build-fixtures
 make verify-bases

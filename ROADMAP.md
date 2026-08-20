@@ -123,7 +123,7 @@ Evidence (2026-08-19): evaluator known-broken tests use synthetic HTTP mutants a
 - [ ] Verify prompts, timeouts, tool isolation, caches, evaluator applicability, and cleanup.
 - [ ] Do not include pilot outcomes in the measured dataset.
 
-Evidence: TODO
+Pre-pilot orchestration progress (2026-08-20): the production rundriver path now resolves scheduled identity and config-owned inputs, applies the minimal Greenfield Codegen workspace overlay, verifies propagation patches and target hashes before snapshotting, enforces two cross-process slots and a 2,700-second candidate deadline, drives the labeled restricted-egress coordinator/tool/PostgreSQL lifecycle with an offline read-only module cache, preserves transcript/stderr/workspace/diff metadata, and finalizes through the credential-scrubbed container evaluator boundary exactly once. Model-free Go tests and shell syntax checks cover all 14 mappings, lifecycle outcomes, propagation, credentials, concurrency, labels, cancellation, and finalization without starting agents, providers, smoke, or pilots. Task 10 remains open and no pilot has been run.
 
 ### 11. Post-Pilot Corrections And Revalidation
 

@@ -46,12 +46,19 @@ func evaluateCandidate(opts options, evaluatorBin, root, workspaceDir string, ce
 	// evaluation budget, so a healthy evaluator always finishes first.
 	ctx, cancel := context.WithTimeout(context.Background(), 16*time.Minute)
 	defer cancel()
-	command := exec.CommandContext(ctx, evaluatorBin, "-task", cell.Task, "-candidate", workspaceDir, "-output", "-")
+	arguments := []string{"-task", cell.Task, "-candidate", workspaceDir, "-output", "-"}
+	var command *exec.Cmd
+	if strings.HasSuffix(evaluatorBin, ".sh") {
+		command = exec.CommandContext(ctx, "bash", append([]string{evaluatorBin}, arguments...)...)
+	} else {
+		command = exec.CommandContext(ctx, evaluatorBin, arguments...)
+	}
 	command.Env = withoutProviderCredentials(os.Environ())
 	var stdout, stderr bytes.Buffer
 	command.Stdout = &stdout
 	command.Stderr = &stderr
 	runErr := command.Run()
+	cleanupLabeledEvaluator()
 	raw := stdout.Bytes()
 	if len(raw) == 0 {
 		raw = []byte("null\n")
@@ -136,6 +143,27 @@ func evaluateCandidate(opts options, evaluatorBin, root, workspaceDir string, ce
 		evaluation.CodegenHealth = health
 	}
 	return evaluation, raw, nil
+}
+
+// cleanupLabeledEvaluator handles an evaluator wrapper whose Docker client was
+// killed by the assembly deadline. A graceful stop lets the evaluator clean up
+// its Testcontainers children before the labelled container is removed.
+func cleanupLabeledEvaluator() {
+	runID, instanceID := os.Getenv("EXPERIMENT_RUN_ID"), os.Getenv("EXPERIMENT_INSTANCE_ID")
+	if runID == "" || instanceID == "" {
+		return
+	}
+	filter := []string{"ps", "-aq", "--filter", "label=experiment.run-id=" + runID, "--filter", "label=experiment.instance-id=" + instanceID}
+	output, err := exec.Command("docker", filter...).Output()
+	if err != nil {
+		return
+	}
+	for _, id := range strings.Fields(string(output)) {
+		ctx, cancel := context.WithTimeout(context.Background(), 25*time.Second)
+		_ = exec.CommandContext(ctx, "docker", "stop", "--time", "20", id).Run()
+		cancel()
+		_ = exec.Command("docker", "rm", "-f", id).Run()
+	}
 }
 
 // checkRoster proves that the evaluator emitted every frozen manifest case

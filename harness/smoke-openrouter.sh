@@ -74,7 +74,6 @@ docker run -d \
   --tmpfs /home/candidate/.cache/go-build:rw,nosuid,nodev,uid=10001,gid=10001 \
   --cap-drop ALL \
   --security-opt no-new-privileges \
-  --add-host "openrouter.ai:$EGRESS_PROXY_IP" \
   -v "$WORKSPACE:/workspace" \
   "$TOOL_IMAGE" >/dev/null
 
@@ -100,6 +99,7 @@ docker create \
   --tmpfs /tmp:rw,exec,nosuid,nodev,uid=10001,gid=10001 \
   --cap-drop ALL \
   --security-opt no-new-privileges \
+  --add-host "openrouter.ai:$EGRESS_PROXY_IP" \
   -v "$WORKSPACE:/workspace:ro" \
   -e OPENROUTER_API_KEY \
   -e OPENCODE_MODEL="$MODEL" \

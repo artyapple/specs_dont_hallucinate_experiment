@@ -37,6 +37,23 @@ type RunMetadata struct {
 	ProtocolViolations []ProtocolViolation `json:"protocolViolations"`
 	Infrastructure     *InfrastructureNote `json:"infrastructure"`
 	ReplacesRunID      *string             `json:"replacesRunId"`
+	Orchestration      *Orchestration      `json:"orchestration,omitempty"`
+}
+
+// Orchestration records production-only provenance without changing the
+// published run-result schema. Synthetic drivers omit it.
+type Orchestration struct {
+	SchedulePath      string            `json:"schedulePath"`
+	ScheduleOrdinal   int               `json:"scheduleOrdinal"`
+	ScheduleRunID     string            `json:"scheduleRunId"`
+	Model             string            `json:"model"`
+	AgentVersion      string            `json:"agentVersion"`
+	ResolvedSources   map[string]string `json:"resolvedSources"`
+	Images            map[string]string `json:"images"`
+	TimeoutSeconds    int               `json:"timeoutSeconds"`
+	ResourceLabels    map[string]string `json:"resourceLabels"`
+	CandidateExitCode int               `json:"candidateExitCode"`
+	CandidateSignal   string            `json:"candidateSignal,omitempty"`
 }
 
 // InfrastructureNote carries the driver's failure classification for runs whose
