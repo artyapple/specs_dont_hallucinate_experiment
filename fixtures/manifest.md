@@ -21,3 +21,5 @@ They must not differ in:
 - visible baseline behavior checks.
 
 Every additional difference requires written justification and a new review before freeze.
+
+Review resolution (2026-08-20): independent review finding `REVIEW-004` identified that the Direct Base 2 fixture retained `golang.org/x/sync v0.17.0` and `golang.org/x/text v0.29.0` while the Codegen fixture selected `v0.19.0` and `v0.32.0` through its generator runtime dependencies. The Direct fixture and all three Direct canonical task solutions now use the same shared indirect versions as Codegen. No production source, formal input, generated output, or public behavior changed.

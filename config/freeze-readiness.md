@@ -36,7 +36,7 @@ Task 6 followed the required order: a clean source revision produced the externa
 | Three propagation patches frozen | Task owner | `make validate-task-targets`; `make validate-config` in frozen mode | Task 12 records revisions and hashes |
 | Nullable request distinguishes omitted/null/value | Compatibility owner | `make test-nullable-compatibility` | Automated check available |
 | Generated output regenerates byte-for-byte | Fixture owner | `make test-base2-codegen verify-task-solutions` | Automated check available |
-| Evaluator passes canonical correct solutions | Evaluator owner | `make evaluate-task-solutions` | Automated check available; human review remains Task 8 |
+| Evaluator passes canonical correct solutions | Evaluator owner | `make evaluate-task-solutions` | Automated checks and independent human review complete |
 | Evaluator rejects every important known-broken class | Evaluator and harness owners | `make test-evaluator test-runresult-integration` | Automated mutation coverage completed in Task 9 |
 | Result schema and extraction work end-to-end | Harness owner | `make test-runresult test-runresult-integration test-freezecheck` | Automated checks available |
 | All 14 unmeasured pilots complete | Pilot operator | `make validate-results RESULTS_DIR=pilots SCHEDULE=<pilot-schedule>` | Run driver Task 7 and pilots Task 10; no pilots in Task 5 |

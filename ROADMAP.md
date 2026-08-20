@@ -92,13 +92,15 @@ Evidence (2026-08-18): `harness/rundriver/` implements a synthetic-only finaliza
 
 ### 8. Canonical Task Solutions
 
-- [ ] Create and human-review Direct and Codegen canonical solutions for Nullable PATCH.
-- [ ] Create and human-review Direct and Codegen canonical solutions for Optimistic Locking.
-- [ ] Create and human-review Direct and Codegen canonical solutions for Cursor Pagination.
+- [x] Create and human-review Direct and Codegen canonical solutions for Nullable PATCH.
+- [x] Create and human-review Direct and Codegen canonical solutions for Optimistic Locking.
+- [x] Create and human-review Direct and Codegen canonical solutions for Cursor Pagination.
 - [x] Preserve treatment constraints and byte-identical formal inputs where required.
 - [x] Pass visible checks, task evaluators, and Codegen regeneration checks.
 
 Evidence (2026-08-17): six draft references exist under `fixtures/task-solutions/`; `make validate-task-targets`, `make verify-task-solutions`, and `make evaluate-task-solutions` pass. The three Direct variants contain no generator configs or generated outputs; Codegen regeneration is byte-for-byte canonical in the pinned tool image. The task remains open until the six implementations receive independent human review.
+
+Evidence amendment (2026-08-20): independent reviewer `sultix` reviewed all six canonical solutions at revision `e244d406c818c5f4297f3993f24e8c999e4e6bd1`; the amended report is preserved as `canonical-solutions-review.md`. The reviewer received and hash-verified authoritative `../experiment-decisions.md` (`4f0832e57c4502604f8827ceaada44b3fef95d8a4cd29a2dc6faa1f43d6875f6`) and rechecked every conclusion against it. All six solutions are `approved`, all three Direct/Codegen pairs are behaviorally equivalent, treatment constraints and byte-identical formal inputs are confirmed, and no blocking findings exist. `REVIEW-001` through `REVIEW-003` remain explicit non-blocking observations about candidate-authored test coverage, an auxiliary read-only query, and stale solution README text. The amended review added non-blocking fixture-level `REVIEW-004`: shared indirect `x/sync` and `x/text` versions differed between Base 2 treatments. It was resolved before pilots by aligning `base2-direct` and the three Direct canonical solutions to Codegen's `v0.19.0` and `v0.32.0`; no production source, formal input, generated output, or public behavior changed. Repository revalidation passes `make validate-config`, `make validate-task-targets`, `make test-base2-direct test-base2-codegen`, `make verify-task-solutions`, `make evaluate-bases`, `make evaluate-task-solutions`, and `git diff --check`. An exact-parameter evaluator OCI rebuild produced the already validated manifest digest `sha256:5c41f1c255669828e6a62ae723f154391590d716007259378487dfc451e94885` and byte-identical archive SHA-256 `629f8f6da5cb448233e5cd878e54255914d7fdfb5f12ec6bd9cd3a7b56ebf157`; Task 6 identities are not superseded. No agent run, pilot, or measured run occurred.
 
 ### 9. Known-Broken Coverage Completion
 

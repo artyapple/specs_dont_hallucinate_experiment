@@ -1,6 +1,6 @@
 # Canonical Task Solutions
 
-Status: draft canonical references. Automated validation is complete; independent human review and global freeze remain pending.
+Status: draft canonical references. Automated validation and independent human review are complete; global freeze remains pending.
 
 Each Part 2 task has behaviorally equivalent Direct and Codegen references:
 
