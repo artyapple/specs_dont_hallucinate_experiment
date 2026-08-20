@@ -369,7 +369,7 @@ func TestProductionShellContracts(t *testing.T) {
 		t.Fatal(err)
 	}
 	text := string(candidate)
-	for _, required := range []string{"--init", "--user 10001:10001", "OPENROUTER_API_KEY", "--add-host \"openrouter.ai:$EGRESS_PROXY_IP\"", "experiment.run-id", "experiment.instance-id", "CANDIDATE_TIMEOUT_SECONDS", "DATABASE_URL=postgres://", "$MODULE_CACHE:/go/pkg/mod:ro", "pg_isready"} {
+	for _, required := range []string{"--init", "--user 10001:10001", "OPENROUTER_API_KEY", "--add-host \"openrouter.ai:$EGRESS_PROXY_IP\"", "experiment.run-id", "experiment.instance-id", "CANDIDATE_TIMEOUT_SECONDS", "DATABASE_URL=postgres://", "--tmpfs /var/lib/postgresql:rw,nosuid,nodev", "$MODULE_CACHE:/go/pkg/mod:ro", "pg_isready"} {
 		if !strings.Contains(text, required) {
 			t.Errorf("candidate runner lacks %q", required)
 		}

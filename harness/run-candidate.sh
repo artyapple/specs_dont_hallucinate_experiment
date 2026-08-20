@@ -84,7 +84,7 @@ docker run -d \
   --hostname postgres \
   --network "$TOOL_NETWORK" \
   --network-alias postgres \
-  --tmpfs /var/lib/postgresql/data:rw,nosuid,nodev \
+  --tmpfs /var/lib/postgresql:rw,nosuid,nodev \
   --security-opt no-new-privileges \
   -e POSTGRES_DB=tasks \
   -e POSTGRES_PASSWORD=visible-check \
