@@ -5,6 +5,8 @@ Implement the service described by the repository's OpenAPI contract, migrations
 Requirements:
 
 - Preserve the formal artifacts as the public and database contracts.
+- Enforce every OpenAPI `additionalProperties: false` constraint at runtime; generated JSON decoding alone may require a handwritten strict-decoding boundary.
+- Treat the supplied Problem Details catalog and OpenAPI response examples as exact normative values, not illustrative prose.
 - Implement all documented baseline Task API operations.
 - Use PostgreSQL through the provided `pgx` pool.
 - Keep HTTP, service, and repository responsibilities separated.

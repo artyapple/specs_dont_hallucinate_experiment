@@ -142,6 +142,9 @@ func TestResolveProductionAllCells(t *testing.T) {
 		if resolved.Task != expectedTask {
 			t.Errorf("%s task = %s, want %s", cell.ID, resolved.Task, expectedTask)
 		}
+		if resolved.ProblemDetails != "tasks/problem-details.md" {
+			t.Errorf("%s Problem Details source = %s", cell.ID, resolved.ProblemDetails)
+		}
 	}
 }
 
@@ -252,12 +255,15 @@ func TestProductionCandidateOutcomesAndFinalization(t *testing.T) {
 			if metadata.Status != test.status || metadata.Orchestration.CandidateExit != mustInt(test.exit) {
 				t.Fatalf("metadata = %+v", metadata)
 			}
+			if metadata.Orchestration.Sources["problemDetails"] != "tasks/problem-details.md" {
+				t.Fatalf("metadata Problem Details source = %q", metadata.Orchestration.Sources["problemDetails"])
+			}
 			calls, _ := os.ReadFile(filepath.Join(root, "assembler.calls"))
 			if string(calls) != "1\n" {
 				t.Fatalf("assembler calls = %q", calls)
 			}
 			prompt, _ := os.ReadFile(filepath.Join(runDir, "prompt.md"))
-			if string(prompt) != "TREATMENT\n\nTASK" {
+			if string(prompt) != "TREATMENT\n\nPROBLEMS\n\nTASK" {
 				t.Fatalf("prompt = %q", prompt)
 			}
 			if _, err := os.Stat(filepath.Join(runDir, ".finalization-started")); err != nil {
@@ -448,7 +454,7 @@ func productionTestRoot(t *testing.T) (string, string, string, string) {
 	})
 	writeTestJSON(t, filepath.Join(root, "schedule.json"), map[string]any{"runs": []map[string]any{{"ordinal": 1, "runId": "run-1", "cellId": "greenfield-direct", "repeatIndex": 1}}})
 	for path, content := range map[string]string{
-		"fixtures/base1/input.txt": "initial\n", "treatments/direct/overlay.md": "TREATMENT", "tasks/part1.md": "TASK",
+		"fixtures/base1/input.txt": "initial\n", "treatments/direct/overlay.md": "TREATMENT", "tasks/problem-details.md": "PROBLEMS", "tasks/part1.md": "TASK",
 		"harness/opencode-run.json": `{"model":"{env:OPENCODE_MODEL}"}`, "fake-evaluator.sh": "#!/bin/sh\nexit 99\n",
 	} {
 		if err := os.WriteFile(filepath.Join(root, path), []byte(content), 0o644); err != nil {

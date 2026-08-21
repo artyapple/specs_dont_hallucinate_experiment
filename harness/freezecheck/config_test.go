@@ -1,7 +1,9 @@
 package main
 
 import (
+	"crypto/sha256"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -41,6 +43,30 @@ func TestFrozenTODORejected(t *testing.T) {
 	err = validateConfig(root)
 	if err == nil || !strings.Contains(err.Error(), "TODO") {
 		t.Fatalf("frozen TODOs were not rejected: %v", err)
+	}
+}
+
+func TestFrozenProblemDetailsTamperingRejected(t *testing.T) {
+	root := t.TempDir()
+	path := filepath.Join(root, "tasks", "problem-details.md")
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	original := []byte("catalog\n")
+	if err := os.WriteFile(path, original, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	sum := sha256.Sum256(original)
+	tasks := map[string]string{"problemDetails": fmt.Sprintf("%x", sum)}
+	paths := map[string]string{"problemDetails": "tasks/problem-details.md"}
+	if errs := frozenTaskInputErrors(root, tasks, paths); len(errs) != 0 {
+		t.Fatalf("matching frozen catalog rejected: %v", errs)
+	}
+	if err := os.WriteFile(path, []byte("tampered\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if errs := frozenTaskInputErrors(root, tasks, paths); len(errs) != 1 || !strings.Contains(errs[0], "problemDetails") {
+		t.Fatalf("tampered frozen catalog was not rejected: %v", errs)
 	}
 }
 

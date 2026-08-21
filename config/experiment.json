@@ -35,6 +35,7 @@
       "codegen": "TODO_GIT_COMMIT"
     },
     "tasks": {
+      "problemDetails": "TODO_CONTENT_SHA256",
       "part1": "TODO_CONTENT_SHA256",
       "nullablePatchFull": "TODO_CONTENT_SHA256",
       "optimisticLockingFull": "TODO_CONTENT_SHA256",

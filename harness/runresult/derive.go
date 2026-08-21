@@ -88,8 +88,8 @@ func taskPrefix(task string) string {
 
 // checkFormalInputs implements the draft formal-inputs gate. Propagation-only
 // runs must reproduce the frozen target manifest byte-for-byte. Greenfield and
-// full-workflow runs may edit formal inputs, so the gate checks presence and
-// basic validity instead; deeper consistency is proven by the migrations,
+// full-workflow runs may edit formal inputs, so the gate checks their own
+// manifest plus basic validity; deeper consistency is proven by the migrations,
 // service-start, and behavior gates.
 func checkFormalInputs(workspace string, cell Cell, propagationDir string) (bool, string) {
 	if cell.Mode == "propagation-only" {
@@ -119,12 +119,52 @@ func checkFormalInputs(workspace string, cell Cell, propagationDir string) (bool
 		return false, "db/migrations is missing"
 	}
 	migrationPattern := regexp.MustCompile(`^[0-9]{6}_[a-z0-9_]+\.sql$`)
+	formalPaths := map[string]bool{"api/openapi.yaml": true, "db/queries/tasks.sql": true}
 	for _, entry := range entries {
 		if !entry.IsDir() && migrationPattern.MatchString(entry.Name()) {
-			return true, ""
+			formalPaths["db/migrations/"+entry.Name()] = true
 		}
 	}
-	return false, "db/migrations contains no NNNNNN_name.sql migration"
+	if len(formalPaths) == 2 {
+		return false, "db/migrations contains no NNNNNN_name.sql migration"
+	}
+	return checkFormalManifest(workspace, formalPaths)
+}
+
+func checkFormalManifest(workspace string, expected map[string]bool) (bool, string) {
+	data, err := os.ReadFile(filepath.Join(workspace, "formal.sha256"))
+	if err != nil {
+		return false, "formal.sha256 is missing"
+	}
+	declared := map[string]bool{}
+	for index, line := range strings.Split(strings.TrimSpace(string(data)), "\n") {
+		fields := strings.Fields(line)
+		if len(fields) != 2 || len(fields[0]) != 64 {
+			return false, fmt.Sprintf("formal.sha256 line %d is invalid", index+1)
+		}
+		if _, err := hex.DecodeString(fields[0]); err != nil {
+			return false, fmt.Sprintf("formal.sha256 line %d has an invalid SHA-256", index+1)
+		}
+		rel := filepath.ToSlash(filepath.Clean(filepath.FromSlash(fields[1])))
+		if rel != fields[1] || !expected[rel] || declared[rel] {
+			return false, "formal.sha256 has an unexpected or duplicate path: " + fields[1]
+		}
+		content, err := os.ReadFile(filepath.Join(workspace, filepath.FromSlash(rel)))
+		if err != nil {
+			return false, "formal.sha256 path is missing: " + rel
+		}
+		sum := sha256.Sum256(content)
+		if !strings.EqualFold(hex.EncodeToString(sum[:]), fields[0]) {
+			return false, "formal.sha256 hash mismatch: " + rel
+		}
+		declared[rel] = true
+	}
+	for rel := range expected {
+		if !declared[rel] {
+			return false, "formal.sha256 does not declare: " + rel
+		}
+	}
+	return true, ""
 }
 
 type targetManifest struct {

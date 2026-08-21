@@ -1,8 +1,11 @@
 package main
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -177,9 +180,50 @@ func TestCheckFormalInputsFullWorkflow(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(workspace, "db", "migrations", "000001_create_tasks.sql"), []byte("SELECT 1;\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
+	var manifest strings.Builder
+	for _, rel := range []string{"api/openapi.yaml", "db/migrations/000001_create_tasks.sql", "db/queries/tasks.sql"} {
+		data, err := os.ReadFile(filepath.Join(workspace, filepath.FromSlash(rel)))
+		if err != nil {
+			t.Fatal(err)
+		}
+		sum := sha256.Sum256(data)
+		manifest.WriteString(hex.EncodeToString(sum[:]) + "  " + rel + "\n")
+	}
+	if err := os.WriteFile(filepath.Join(workspace, "formal.sha256"), []byte(manifest.String()), 0o644); err != nil {
+		t.Fatal(err)
+	}
 	ok, evidence := checkFormalInputs(workspace, cell, propagation)
 	if !ok {
 		t.Fatalf("minimal valid formal inputs must pass: %s", evidence)
+	}
+	if err := os.WriteFile(filepath.Join(workspace, "db", "queries", "tasks.sql"), []byte("-- stale manifest\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if ok, _ := checkFormalInputs(workspace, cell, propagation); ok {
+		t.Fatal("stale formal.sha256 must fail the gate")
+	}
+	if err := os.WriteFile(filepath.Join(workspace, "db", "queries", "tasks.sql"), []byte("-- name: ListTasks :many\nSELECT 1;\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	secondMigration := filepath.Join(workspace, "db", "migrations", "000002_new.sql")
+	if err := os.WriteFile(secondMigration, []byte("SELECT 2;\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if ok, _ := checkFormalInputs(workspace, cell, propagation); ok {
+		t.Fatal("a migration omitted from formal.sha256 must fail the gate")
+	}
+	if err := os.Remove(secondMigration); err != nil {
+		t.Fatal(err)
+	}
+	unsafeManifest := strings.Replace(manifest.String(), "api/openapi.yaml", "../openapi.yaml", 1)
+	if err := os.WriteFile(filepath.Join(workspace, "formal.sha256"), []byte(unsafeManifest), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if ok, _ := checkFormalInputs(workspace, cell, propagation); ok {
+		t.Fatal("an unsafe formal.sha256 path must fail the gate")
+	}
+	if err := os.WriteFile(filepath.Join(workspace, "formal.sha256"), []byte(manifest.String()), 0o644); err != nil {
+		t.Fatal(err)
 	}
 
 	if err := os.WriteFile(filepath.Join(workspace, "api", "openapi.yaml"), []byte("openapi: [broken\n"), 0o644); err != nil {

@@ -16,6 +16,10 @@ cleanup() {
 }
 trap cleanup EXIT
 
+assert_validation_problem() {
+  go run ./scripts/assert-validation-problem.go "$1" "$2"
+}
+
 : "${DATABASE_URL:?DATABASE_URL must point to the clean visible PostgreSQL sidecar}"
 cd "$ROOT_DIR"
 make validate-formal
@@ -31,6 +35,19 @@ for _ in $(seq 1 30); do
   sleep 1
 done
 curl --fail --silent --max-time 2 "$BASE_URL/healthz" >/dev/null
+
+for case_name in blank-title unknown-field; do
+  body="{\"title\":\" \"}"
+  if [ "$case_name" = unknown-field ]; then body='{"title":"visible","extra":true}'; fi
+  curl --silent --show-error --max-time 5 --output "$TMP_DIR/$case_name.json" --write-out '%{http_code}\n%{content_type}\n' --header 'content-type: application/json' --data "$body" "$BASE_URL/tasks" >"$TMP_DIR/$case_name.meta"
+  status="$(sed -n '1p' "$TMP_DIR/$case_name.meta")"
+  test "$status" = 400
+  assert_validation_problem "$TMP_DIR/$case_name.json" "$(sed -n '2p' "$TMP_DIR/$case_name.meta")"
+done
+curl --silent --show-error --max-time 5 --output "$TMP_DIR/invalid-id.json" --write-out '%{http_code}\n%{content_type}\n' "$BASE_URL/tasks/not-a-uuid" >"$TMP_DIR/invalid-id.meta"
+status="$(sed -n '1p' "$TMP_DIR/invalid-id.meta")"
+test "$status" = 400
+assert_validation_problem "$TMP_DIR/invalid-id.json" "$(sed -n '2p' "$TMP_DIR/invalid-id.meta")"
 
 status="$(curl --silent --show-error --max-time 5 --output "$TMP_DIR/create.json" --write-out '%{http_code}' --header 'content-type: application/json' --data '{"title":"  visible task  "}' "$BASE_URL/tasks")"
 test "$status" = 201

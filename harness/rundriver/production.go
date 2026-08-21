@@ -79,6 +79,7 @@ type resolvedRun struct {
 	Treatment        string
 	WorkspaceOverlay string
 	Task             string
+	ProblemDetails   string
 	Model            string
 	AgentVersion     string
 	CoordinatorImage string
@@ -220,7 +221,11 @@ func runProduction(ctx context.Context, opts productionOptions) error {
 	if err != nil {
 		return fmt.Errorf("read task: %w", err)
 	}
-	prompt := append(append(append([]byte(nil), treatmentText...), '\n', '\n'), taskText...)
+	problemDetailsText, err := os.ReadFile(filepath.Join(root, resolved.ProblemDetails))
+	if err != nil {
+		return fmt.Errorf("read Problem Details catalog: %w", err)
+	}
+	prompt := append(append(append(append(append([]byte(nil), treatmentText...), '\n', '\n'), problemDetailsText...), '\n', '\n'), taskText...)
 	if err := os.WriteFile(filepath.Join(runDir, "prompt.md"), prompt, 0o644); err != nil {
 		return err
 	}
@@ -320,7 +325,7 @@ func runProduction(ctx context.Context, opts productionOptions) error {
 		Orchestration: productionOrchestration{
 			SchedulePath: schedulePath, ScheduleOrdinal: resolved.ScheduleOrdinal, ScheduleRunID: opts.runID,
 			Model: resolved.Model, AgentVersion: resolved.AgentVersion,
-			Sources:        map[string]string{"fixture": resolved.Fixture, "treatment": resolved.Treatment, "workspaceOverlay": resolved.WorkspaceOverlay, "task": resolved.Task},
+			Sources:        map[string]string{"fixture": resolved.Fixture, "treatment": resolved.Treatment, "workspaceOverlay": resolved.WorkspaceOverlay, "problemDetails": resolved.ProblemDetails, "task": resolved.Task},
 			Images:         map[string]string{"coordinator": resolved.CoordinatorImage, "tool": resolved.ToolImage, "toolCodegen": resolved.CodegenImage, "evaluator": resolved.EvaluatorImage, "postgres": resolved.PostgresImage},
 			TimeoutSeconds: resolved.TimeoutSeconds, ResourceLabels: labels, CandidateExit: exitCode, CandidateSignal: candidateSignal,
 		},
@@ -414,7 +419,7 @@ func resolveProduction(root, schedulePath, runID string) (resolvedRun, error) {
 	resolved := resolvedRun{Cell: *cell, RepeatIndex: entry.RepeatIndex, ScheduleOrdinal: entry.Ordinal,
 		Model: config.Model.ID, AgentVersion: config.Agent.Version, CoordinatorImage: config.FrozenInputs.EnvironmentImages.Coordinator,
 		CodegenImage: config.FrozenInputs.EnvironmentImages.ToolCodegen, EvaluatorImage: config.FrozenInputs.EnvironmentImages.Evaluator,
-		PostgresImage:  versions.Frozen.PostgresImage,
+		PostgresImage: versions.Frozen.PostgresImage, ProblemDetails: "tasks/problem-details.md",
 		TimeoutSeconds: config.Execution.TimeoutSeconds, MaxConcurrency: config.Execution.MaxConcurrency}
 	if cell.Stage == "greenfield" {
 		resolved.Fixture, resolved.Task = "fixtures/base1", "tasks/part1.md"

@@ -24,6 +24,15 @@ type designRevisionFile struct {
 	SourceSHA256  string `json:"sourceSha256"`
 }
 
+var taskInputPaths = map[string]string{
+	"problemDetails": "tasks/problem-details.md", "part1": "tasks/part1.md",
+	"nullablePatchFull": "tasks/full/nullable-patch.md", "optimisticLockingFull": "tasks/full/optimistic-locking.md",
+	"cursorPaginationFull": "tasks/full/cursor-pagination.md", "nullablePatchPropagationTask": "tasks/propagation/nullable-patch.md",
+	"optimisticLockingPropagationTask": "tasks/propagation/optimistic-locking.md", "cursorPaginationPropagationTask": "tasks/propagation/cursor-pagination.md",
+	"nullablePatchFormalPatch": "tasks/propagation/nullable-patch/formal.patch", "optimisticLockingFormalPatch": "tasks/propagation/optimistic-locking/formal.patch",
+	"cursorPaginationFormalPatch": "tasks/propagation/cursor-pagination/formal.patch",
+}
+
 func validateConfig(root string) error {
 	root, err := filepath.Abs(root)
 	if err != nil {
@@ -155,30 +164,29 @@ func frozenConfigErrors(root string, configData, versionsData []byte, config exp
 			errs = append(errs, fmt.Sprintf("Git revision %s=%q does not resolve to a commit", key, revision))
 		}
 	}
-	taskPaths := map[string]string{
-		"part1": "tasks/part1.md", "nullablePatchFull": "tasks/full/nullable-patch.md",
-		"optimisticLockingFull": "tasks/full/optimistic-locking.md", "cursorPaginationFull": "tasks/full/cursor-pagination.md",
-		"nullablePatchPropagationTask": "tasks/propagation/nullable-patch.md", "optimisticLockingPropagationTask": "tasks/propagation/optimistic-locking.md",
-		"cursorPaginationPropagationTask": "tasks/propagation/cursor-pagination.md", "nullablePatchFormalPatch": "tasks/propagation/nullable-patch/formal.patch",
-		"optimisticLockingFormalPatch": "tasks/propagation/optimistic-locking/formal.patch", "cursorPaginationFormalPatch": "tasks/propagation/cursor-pagination/formal.patch",
-	}
-	for key, path := range taskPaths {
-		data, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(path)))
-		if err != nil {
-			errs = append(errs, fmt.Sprintf("task input %s cannot be read: %v", path, err))
-			continue
-		}
-		sum := sha256.Sum256(data)
-		if !strings.EqualFold(config.FrozenInputs.Tasks[key], hex.EncodeToString(sum[:])) {
-			errs = append(errs, fmt.Sprintf("frozenInputs.tasks.%s does not match SHA-256 of %s", key, path))
-		}
-	}
+	errs = append(errs, frozenTaskInputErrors(root, config.FrozenInputs.Tasks, taskInputPaths)...)
 	status := exec.Command("git", "-C", root, "status", "--porcelain", "--untracked-files=all")
 	output, err := status.Output()
 	if err != nil {
 		errs = append(errs, "cannot inspect Git worktree cleanliness")
 	} else if len(output) != 0 {
 		errs = append(errs, "repository worktree is not clean")
+	}
+	return errs
+}
+
+func frozenTaskInputErrors(root string, tasks, paths map[string]string) []string {
+	errs := []string{}
+	for key, path := range paths {
+		data, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(path)))
+		if err != nil {
+			errs = append(errs, fmt.Sprintf("task input %s cannot be read: %v", path, err))
+			continue
+		}
+		sum := sha256.Sum256(data)
+		if !strings.EqualFold(tasks[key], hex.EncodeToString(sum[:])) {
+			errs = append(errs, fmt.Sprintf("frozenInputs.tasks.%s does not match SHA-256 of %s", key, path))
+		}
 	}
 	return errs
 }

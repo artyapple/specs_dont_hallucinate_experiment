@@ -127,6 +127,8 @@ Pre-pilot orchestration progress (2026-08-20): the production rundriver path now
 
 Pilot gate amendment (2026-08-20): a real-provider smoke passed, but the first scheduled pilot failed before agent startup because PostgreSQL 18 rejects the legacy `/var/lib/postgresql/data` tmpfs mount. After preserving that infrastructure-failure artifact, a reviewed replacement completed the agent phase but hidden evaluation could not start because GNU `stat -f` returned a filesystem report instead of a socket GID. Both failed artifacts remain outside Git and neither is accepted as the completed cell pilot. The audit fixed the PostgreSQL 18 mount, OS-specific evaluator socket GID resolution, executable tool Go build cache, relay readiness race, and separation of bounded setup grace from the 2,700-second agent budget. `make test-production-container-lifecycle` now exercises the actual credential-free production container path, including PostgreSQL, offline modules, Codegen tool bridge, evaluator PostgreSQL/Ryuk, and cleanup; it passes repeatedly on the dedicated Ubuntu `linux/amd64` host and on Docker Desktop. Existing config, rundriver, runresult, Codegen overlay, coordinator egress, race, vet, module, syntax, and diff checks pass. Task 10 remains open pending a newly scheduled replacement on the audited revision.
 
+Pilot completion amendment (2026-08-21): the reviewed replacement and the remaining thirteen scheduled runs completed on revision `c8db13f9a4f2d341c4d64f6670aefc9242d62766`. The accepted set contains one run for every cell, all with status `submitted`, no protocol violations, and no infrastructure or harness failures. Eleven runs have `completeSuccess: true`; the three retained candidate failures are `optimistic-locking-full-direct`, `greenfield-codegen`, and `optimistic-locking-full-codegen`. Reciprocal replacement links, result schemas, all fourteen unique cells, cleanup, credential scan, and checksums validate. Pilot artifacts and preflight evidence remain outside Git and outside measured results. Task 10 is complete.
+
 ### 11. Post-Pilot Corrections And Revalidation
 
 - [ ] Classify every issue found during pilots.
@@ -134,7 +136,7 @@ Pilot gate amendment (2026-08-20): a real-provider smoke passed, but the first s
 - [ ] Repeat affected pilots after changes to semantics, evaluator rules, or treatments.
 - [ ] Re-run all readiness and reproducibility checks after the final correction.
 
-Evidence: TODO
+Evidence (2026-08-21): `post-pilot-review.md` classifies every failed or excluded attempt. The three accepted candidate failures remain valid model outcomes. Review found that exact Problem Details values required by the authoritative design were not fully present in agent-visible prompts, full/Greenfield formal gates did not verify `formal.sha256`, and visible checks omitted strict negative contract cases. Corrections expose the unchanged exact catalog to every cell, freeze its content hash, require runtime strict decoding in Greenfield, verify candidate-owned formal manifests with matching visible/hidden path sets, and strengthen equal Base 1/Base 2 visible checks. Evaluator semantics and OCI bytes are unchanged. A separate fourteen-cell post-correction pilot phase is required before Task 11 can close.
 
 ### 12. Execute Global Freeze
 

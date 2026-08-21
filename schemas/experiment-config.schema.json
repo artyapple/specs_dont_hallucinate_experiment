@@ -96,6 +96,7 @@
         "tasks": {
           "type": "object",
           "required": [
+            "problemDetails",
             "part1",
             "nullablePatchFull",
             "optimisticLockingFull",
@@ -109,6 +110,7 @@
           ],
           "additionalProperties": false,
           "properties": {
+            "problemDetails": {"type": "string", "minLength": 1},
             "part1": {"type": "string", "minLength": 1},
             "nullablePatchFull": {"type": "string", "minLength": 1},
             "optimisticLockingFull": {"type": "string", "minLength": 1},
